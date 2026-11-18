@@ -189,8 +189,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"ok": False, "error": "not found"})
             return
 
-        if not self._is_authed():
-            self._send(401, {"ok": False, "error": "未解锁"})
+        if not self._is_admin():
+            self._send(401, {"ok": False, "error": "录入数据需要管理码"})
             return
         if not self._origin_ok():
             self._send(403, {"ok": False, "error": "来源不合法"})

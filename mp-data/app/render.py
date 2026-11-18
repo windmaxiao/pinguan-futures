@@ -705,25 +705,35 @@ def render_input(conn, cfg, data):
                fmt(r["value"], 2), html.escape(r["unit"] or ""),
                html.escape(r["note"] or "")))
 
-    return """<!doctype html>
+    tpl = """<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>数据录入 · {title}</title><style>{css}</style></head>
+<title>数据录入 · __TITLE__</title><style>__CSS__</style></head>
 <body><div class="wrap">
 <header>
   <h1>数据录入</h1>
-  <div class="meta">{today}</div>
+  <div class="meta">__TODAY__</div>
   <nav><a href="index.html">← 返回看板</a></nav>
 </header>
 
+<div class="card" id="gate">
+  <div class="note" style="margin:0 0 12px">录入数据需要管理码验证（访问码只用来查看）</div>
+  <form class="formbar" id="gform">
+    <label>管理码 <input type="password" id="acode" autocomplete="off" autofocus></label>
+    <button id="gbtn" type="submit">验证</button>
+  </form>
+  <div id="gmsg"></div>
+</div>
+
+<div id="area" style="display:none">
 <div class="card">
   <div class="note" style="margin:0 0 12px">只更新填了值的项，留空的不动；保存后看板会自动重新生成。</div>
   <div class="tablewrap"><table>
     <thead><tr><th style="width:34%">指标</th><th style="width:30%">当前值</th>
     <th>新值</th></tr></thead>
-    <tbody>{rows}</tbody></table></div>
+    <tbody>__ROWS__</tbody></table></div>
   <div class="formbar">
-    <label>日期 <input type="date" id="f-date" value="{today}"></label>
+    <label>日期 <input type="date" id="f-date" value="__TODAY__"></label>
     <label>备注 <input type="text" id="f-note" maxlength="100"
       placeholder="如 Mysteel 46周"></label>
     <button id="save-btn" type="button">保存</button>
@@ -734,14 +744,45 @@ def render_input(conn, cfg, data):
 <h2>最近录入</h2>
 <div class="card"><div class="tablewrap"><table>
   <thead><tr><th>指标</th><th>日期</th><th class="num">数值</th><th>备注</th></tr></thead>
-  <tbody>{recent}</tbody></table></div></div>
+  <tbody>__RECENT__</tbody></table></div></div>
+</div>
 
 <footer>保存接口只能经 https://data.example.com/ 访问；
 直接双击本地文件打开时无法保存。</footer>
-</div>{form_js}</body></html>
-""".format(title=html.escape(cfg["site_title"]), today=today, css=CSS,
-           rows="".join(rows), recent="".join(recent) or
-           "<tr><td colspan='4'>暂无记录</td></tr>", form_js=FORM_JS)
+</div>
+<script>
+(function () {
+  var gate = document.getElementById('gate');
+  var area = document.getElementById('area');
+  var gmsg = document.getElementById('gmsg');
+  var gbtn = document.getElementById('gbtn');
+  function show() { gate.style.display = 'none'; area.style.display = ''; }
+  function failed(t) { gmsg.style.color = '#c0392b'; gmsg.textContent = t; gbtn.disabled = false; }
+  fetch('/auth/admin/status').then(function (r) { return r.json(); })
+    .then(function (j) { if (j.ok) show(); }).catch(function () {});
+  document.getElementById('gform').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var code = document.getElementById('acode').value.trim();
+    if (!code) { failed('请输入管理码'); return; }
+    gbtn.disabled = true; gmsg.style.color = '#8a7f76'; gmsg.textContent = '验证中…';
+    fetch('/auth/admin/login', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({code: code})
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.ok) { show(); return; }
+      failed(j.error || '管理码不正确');
+    }).catch(function () { failed('网络错误'); });
+  });
+})();
+</script>
+__FORM_JS__</body></html>"""
+    return (tpl.replace("__TITLE__", html.escape(cfg["site_title"]))
+               .replace("__TODAY__", today)
+               .replace("__CSS__", CSS)
+               .replace("__ROWS__", "".join(rows))
+               .replace("__RECENT__", "".join(recent) or
+                        "<tr><td colspan='4'>暂无记录</td></tr>")
+               .replace("__FORM_JS__", FORM_JS))
 
 
 
@@ -812,6 +853,7 @@ def render_admin(cfg):
     <div class="gate-row">
       <button type="button" id="toggle">切换门禁</button>
       <button type="button" id="gen">生成新访问码</button>
+      <a href="input.html"><button type="button">数据录入</button></a>
       <a href="index.html"><button type="button">返回看板</button></a>
     </div>
     <div id="newcode"></div>

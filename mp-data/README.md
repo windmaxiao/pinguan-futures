@@ -61,6 +61,17 @@ python -m http.server 8000 --directory site
 - cookie：HMAC 签名 + 过期时间，`HttpOnly; Secure; SameSite=Lax`
 - scope 隔离：`auth` 的 cookie 无法冒充 `admin`
 
+### 权限分层
+
+| 操作 | 需要 |
+|---|---|
+| 看板、简报、周度数据 | 访问码 |
+| **录入数据（`input.html` 与 `/api/manual`）** | **管理码** |
+| 生成访问码、开关门禁 | 管理码 |
+
+写操作在应用层也会二次校验（不只依赖 nginx），所以把访问码分享给别人，
+对方能看但不能改数据。
+
 ### 命令行
 
 ```bash
