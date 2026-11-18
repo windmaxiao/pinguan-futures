@@ -1,0 +1,10 @@
+[Unit]
+Description=豆粕数据库每日备份定时器
+
+[Timer]
+OnCalendar=*-*-* 03:20:00
+Persistent=true
+Unit=mp-data-backup.service
+
+[Install]
+WantedBy=timers.target

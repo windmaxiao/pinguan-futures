@@ -1,0 +1,81 @@
+{
+  "site_title": "豆粕数据看板",
+  "timezone": "Asia/Shanghai",
+  "contracts": {
+    "M":  {"months": [1, 3, 5, 7, 8, 9, 11, 12], "count": 5},
+    "RM": {"months": [1, 3, 5, 7, 8, 9, 11], "count": 1},
+    "Y":  {"months": [1, 3, 5, 7, 8, 9, 11, 12], "count": 2},
+    "LH": {"months": [1, 3, 5, 7, 9, 11], "count": 2}
+  },
+  "spot_alt": {
+    "enabled": true,
+    "series": "A4.spot.100ppi",
+    "vendor": "生意社",
+    "label": "全国基准价"
+  },
+  "news": {
+    "enabled": true,
+    "mcp_url": "https://mcp.jin10.com/mcp",
+    "token_file": "/etc/mp-data/jin10.json",
+    "keywords": ["豆粕", "大豆", "豆油", "菜粕", "生猪", "饲料", "压榨", "USDA"],
+    "news_keywords": ["豆粕", "大豆"],
+    "alert_keywords": ["USDA", "关税", "暂停进口", "罢工", "干旱", "抛储", "收储", "停机", "霜冻", "限电"],
+    "sina_flash": {"enabled": false, "pages": 1, "page_size": 50},
+    "max_age_hours": 72,
+    "news_max_age_days": 30,
+    "show_count": 10,
+    "calendar_star": 3,
+    "calendar_keywords": ["USDA", "大豆", "农产品", "农业", "非农", "CPI", "PPI", "PMI", "利率", "GDP", "进口", "出口", "库存", "种植"],
+    "calendar_count": 8,
+    "sector_pipeline": {"enabled": true, "pages": 2},
+    "sectors": {
+      "宏观": ["美联储", "非农", "CPI", "PPI", "利率", "央行", "GDP", "关税"],
+      "黑色": ["螺纹", "铁矿", "焦煤", "焦炭", "钢材"],
+      "有色": ["铜", "铝", "锌", "镍", "LME"],
+      "能化": ["原油", "OPEC", "PTA", "甲醇", "PVC", "天然气"],
+      "农产品": ["大豆", "玉米", "棕榈", "白糖", "棉花", "菜籽"],
+      "贵金属": ["黄金", "白银"],
+      "股指": ["A股", "恒生", "标普", "纳指", "沪深"],
+      "汇率": ["人民币", "美元指数", "汇率", "离岸"]
+    }
+  },
+  "foreign": {
+    "S": "CBOT美豆"
+  },
+  "fx": {"symbol": "susdcny", "series": "A8.USDCNY"},
+  "crush": {
+    "enabled": true,
+    "meal_yield": 0.785,
+    "oil_yield": 0.185,
+    "processing_fee": 150,
+    "port_fee": 100,
+    "freight_usd": 35,
+    "tariff": 0.13,
+    "vat": 0.09,
+    "premium_cents": 0
+  },
+  "spot": {
+    "series": "A4.spot",
+    "region": "华东",
+    "unit": "元/吨"
+  },
+  "manual_series": {
+    "A4.spot":        {"name": "豆粕现货价", "unit": "元/吨", "freq": "D", "hint": "华东43%蛋白主流报价", "min": 1500, "max": 8000},
+    "B1.inventory":   {"name": "油厂豆粕库存", "unit": "万吨", "freq": "W", "hint": "Mysteel 主要油厂，注意口径", "min": 0, "max": 600},
+    "B2.soy_inventory":{"name": "油厂大豆库存", "unit": "万吨", "freq": "W", "hint": "Mysteel 主要油厂", "min": 0, "max": 3000},
+    "B3.crush_rate":  {"name": "油厂开机率", "unit": "%", "freq": "W", "hint": "Mysteel 周度实际开机率", "min": 0, "max": 100},
+    "B4.arrival":     {"name": "周度大豆到港", "unit": "万吨", "freq": "W", "hint": "Mysteel 周度到港", "min": 0, "max": 2000},
+    "D1.wasde_stock": {"name": "美豆期末库存(USDA)", "unit": "亿蒲", "freq": "M", "hint": "WASDE 月度", "min": 0, "max": 30},
+    "C1.hog_profit":  {"name": "生猪自繁自养利润", "unit": "元/头", "freq": "W", "hint": "周度，负数为亏损", "min": -3000, "max": 3000}
+  },
+  "thresholds": {
+    "inventory_high_pct": 80,
+    "inventory_low_pct": 20,
+    "inventory_abs": {"tight": 60, "loose": 115},
+    "demand_profit_high": 200,
+    "demand_profit_low": -200,
+    "stale_days": 10,
+    "min_history_for_pct": 8
+  },
+  "delivery_notice_days": 30
+}

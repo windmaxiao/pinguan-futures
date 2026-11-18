@@ -1,0 +1,29 @@
+# 凭据（永不入库）
+.ssh/
+**/notify.json
+**/jin10.json
+**/llm.json
+**/secrets.yaml
+.env
+
+# 运行时数据
+mp-data/db/
+mp-data/raw/
+mp-data/site/
+mp-data/logs/
+mp-data/backup/
+
+# 构建产物
+__pycache__/
+*.pyc
+
+# 打包与临时
+*.zip
+_probe/
+
+# 根目录的旧副本（内容已收入 docs/，因文件权限无法删除）
+/豆粕期货专注交易研究手册.md
+
+# 系统文件
+.DS_Store
+Thumbs.db

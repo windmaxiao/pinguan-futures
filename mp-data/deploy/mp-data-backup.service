@@ -1,0 +1,13 @@
+[Unit]
+Description=豆粕数据库备份
+After=mp-data.service
+
+[Service]
+Type=oneshot
+User=mpdata
+Group=mpdata
+WorkingDirectory=/srv/mp-data
+Environment=TZ=Asia/Shanghai
+ExecStart=/usr/bin/python3 /srv/mp-data/app/backup.py
+StandardOutput=append:/srv/mp-data/logs/backup.log
+StandardError=append:/srv/mp-data/logs/backup.log

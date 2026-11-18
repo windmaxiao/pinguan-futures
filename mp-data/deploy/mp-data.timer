@@ -1,0 +1,16 @@
+[Unit]
+Description=豆粕数据抓取定时器
+
+[Timer]
+# 盘前：拿到昨夜 CBOT 收盘，赶在 09:00 开盘前出页
+OnCalendar=*-*-* 08:35:00
+# 收盘后：刷新当日行情
+OnCalendar=*-*-* 15:10:00
+# 结算价兜底：交易所通常 15:30~16:30 才发布结算价，
+# 且 21:00 夜盘属于下一交易日，那时再抓就是新交易日、结算价为 0，所以必须在这个窗口内补抓
+OnCalendar=*-*-* 17:30:00
+Persistent=true
+Unit=mp-data.service
+
+[Install]
+WantedBy=timers.target

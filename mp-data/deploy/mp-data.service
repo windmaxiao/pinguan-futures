@@ -1,0 +1,18 @@
+[Unit]
+Description=豆粕数据抓取与页面生成
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=mpdata
+Group=mpdata
+WorkingDirectory=/srv/mp-data
+Environment=TZ=Asia/Shanghai
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /srv/mp-data/app/fetch.py
+ExecStartPost=/usr/bin/python3 /srv/mp-data/app/render.py
+ExecStartPost=/usr/bin/python3 /srv/mp-data/app/health.py
+StandardOutput=append:/srv/mp-data/logs/fetch.log
+StandardError=append:/srv/mp-data/logs/fetch.log
+TimeoutStartSec=900

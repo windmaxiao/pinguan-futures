@@ -1,0 +1,14 @@
+[Unit]
+Description=豆粕快讯定时器（08:00-23:00 每 30 分钟）
+
+[Timer]
+# 08:00 到 22:30 每半小时一次
+OnCalendar=*-*-* 08..22:00:00
+OnCalendar=*-*-* 08..22:30:00
+# 23:00 最后一次，之后到次日 07:30 之前不抓
+OnCalendar=*-*-* 23:00:00
+Persistent=true
+Unit=mp-data-news.service
+
+[Install]
+WantedBy=timers.target

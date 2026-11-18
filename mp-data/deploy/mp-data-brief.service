@@ -1,0 +1,16 @@
+[Unit]
+Description=豆粕每日简报（07:30）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=mpdata
+Group=mpdata
+WorkingDirectory=/srv/mp-data
+Environment=TZ=Asia/Shanghai
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /srv/mp-data/app/brief.py
+StandardOutput=append:/srv/mp-data/logs/brief.log
+StandardError=append:/srv/mp-data/logs/brief.log
+TimeoutStartSec=600

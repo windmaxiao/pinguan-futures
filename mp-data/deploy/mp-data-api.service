@@ -1,0 +1,22 @@
+[Unit]
+Description=豆粕数据写入接口
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mpdata
+Group=mpdata
+WorkingDirectory=/srv/mp-data
+Environment=TZ=Asia/Shanghai
+Environment=PYTHONUNBUFFERED=1
+Environment=MP_API_PORT=8765
+Environment=MP_ALLOWED_ORIGIN=https://data.windxiao.site
+ExecStart=/usr/bin/python3 /srv/mp-data/app/api.py
+Restart=always
+RestartSec=3
+StandardOutput=append:/srv/mp-data/logs/api.log
+StandardError=append:/srv/mp-data/logs/api.log
+
+[Install]
+WantedBy=multi-user.target

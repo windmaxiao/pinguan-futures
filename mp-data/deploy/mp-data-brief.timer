@@ -1,0 +1,11 @@
+[Unit]
+Description=豆粕每日简报定时器
+
+[Timer]
+# 早上 07:30：抓一次隔夜资讯，生成简报并发邮件
+OnCalendar=*-*-* 07:30:00
+Persistent=true
+Unit=mp-data-brief.service
+
+[Install]
+WantedBy=timers.target

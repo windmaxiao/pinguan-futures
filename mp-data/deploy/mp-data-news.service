@@ -1,0 +1,16 @@
+[Unit]
+Description=豆粕快讯抓取（每 30 分钟，含重要快讯推送）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=mpdata
+Group=mpdata
+WorkingDirectory=/srv/mp-data
+Environment=TZ=Asia/Shanghai
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /srv/mp-data/app/news.py --flash-only
+StandardOutput=append:/srv/mp-data/logs/news.log
+StandardError=append:/srv/mp-data/logs/news.log
+TimeoutStartSec=300
