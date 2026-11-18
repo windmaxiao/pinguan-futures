@@ -1051,6 +1051,10 @@ def render_admin(cfg):
   </form>
   <div class="gate-msg" id="msg"></div>
 
+  <div class="gate-row" style="margin:16px 0 0">
+    <a href="index.html"><button type="button">← 返回看板</button></a>
+  </div>
+
   <div id="panel" style="display:none">
     <div class="gate-row"><span>门禁状态：<b id="state">—</b></span></div>
     <div class="gate-row"><span>访问码指纹：<b id="hint">—</b></span></div>
@@ -1058,7 +1062,6 @@ def render_admin(cfg):
       <button type="button" id="toggle">切换门禁</button>
       <button type="button" id="gen">生成新访问码</button>
       <a href="input.html"><button type="button">数据录入</button></a>
-      <a href="index.html"><button type="button">返回看板</button></a>
     </div>
     <div id="newcode"></div>
   </div>
