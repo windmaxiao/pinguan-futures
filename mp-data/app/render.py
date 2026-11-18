@@ -714,7 +714,7 @@ def render_input(conn, cfg, data):
   <thead><tr><th>指标</th><th>日期</th><th class="num">数值</th><th>备注</th></tr></thead>
   <tbody>{recent}</tbody></table></div></div>
 
-<footer>保存接口只能经 https://data.windxiao.site/ 访问；
+<footer>保存接口只能经 https://data.example.com/ 访问；
 直接双击本地文件打开时无法保存。</footer>
 </div>{form_js}</body></html>
 """.format(title=html.escape(cfg["site_title"]), today=today, css=CSS,

@@ -11,7 +11,7 @@ WorkingDirectory=/srv/mp-data
 Environment=TZ=Asia/Shanghai
 Environment=PYTHONUNBUFFERED=1
 Environment=MP_API_PORT=8765
-Environment=MP_ALLOWED_ORIGIN=https://data.windxiao.site
+Environment=MP_ALLOWED_ORIGIN=https://data.example.com
 ExecStart=/usr/bin/python3 /srv/mp-data/app/api.py
 Restart=always
 RestartSec=3

@@ -6,6 +6,9 @@
 **/secrets.yaml
 .env
 
+# 个人运维文档（含服务器路径与凭据位置，只保留在本地）
+docs/交接说明.md
+
 # 运行时数据
 mp-data/db/
 mp-data/raw/

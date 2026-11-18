@@ -69,6 +69,10 @@ python3 -m http.server 8000 --directory site
 sudo bash mp-data/install.sh
 ```
 
+> ⚠️ 仓库里的 `data.example.com` 是**占位符**，部署前要换成你自己的域名，
+> 涉及 5 个应用文件和 1 个 systemd 单元，具体清单见
+> [mp-data/README.md](mp-data/README.md#部署到服务器)。
+
 会自动创建 `mpdata` 用户、装好 systemd 定时任务、建立 `/srv/mp-data` 目录结构。
 之后需要手动配置三样东西（都在 `/etc/mp-data/`，权限 600）：
 

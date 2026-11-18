@@ -48,12 +48,33 @@ python -m http.server 8000 --directory site
 # 浏览器打开 http://127.0.0.1:8000/
 ```
 
-## 服务器部署
+## 部署到服务器
 
 ```bash
 # 上传后在服务器执行
 sudo bash install.sh
 ```
+
+### 部署前必改：把占位域名换成你自己的
+
+仓库里的 `data.example.com` 是占位符，涉及这几处：
+
+| 文件 | 位置 |
+|---|---|
+| `app/api.py` | `ALLOWED_ORIGIN` 默认值 |
+| `app/brief.py` | `SITE_URL` |
+| `app/health.py` | `SITE` |
+| `app/news.py` | 告警正文里的看板链接 |
+| `app/render.py` | 录入页页脚的提示 |
+| `deploy/mp-data-api.service` | `MP_ALLOWED_ORIGIN` 环境变量 |
+
+一条命令替换（把 `data.example.com` 换成你的域名）：
+
+```bash
+grep -rl 'data\.example\.com' . | xargs sed -i 's/data\.example\.com/你的域名/g'
+```
+
+`MP_ALLOWED_ORIGIN` 必须和实际访问域名**完全一致**（含协议），否则网页录入会被拒。
 
 装完即启用两个定时器：
 
@@ -169,7 +190,7 @@ AI 摘要走 OpenAI 兼容接口，凭据在 `/etc/mp-data/llm.json`：
 
 ### 网页录入（推荐，手机也能填）
 
-打开 `https://data.windxiao.site/`，页面底部「数据录入」表格，
+打开 `https://data.example.com/`，页面底部「数据录入」表格，
 填了值的项会保存，留空的跳过，保存后自动刷新。
 
 - 由 `mp-data-api.service` 提供，**只监听 127.0.0.1:8765**，外网只能经 nginx（带密码）访问；

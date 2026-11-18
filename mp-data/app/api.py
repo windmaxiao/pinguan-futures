@@ -25,7 +25,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = os.path.join(ROOT, "app")
 DB_PATH = os.path.join(ROOT, "db", "mp.sqlite3")
 PORT = int(os.environ.get("MP_API_PORT", "8765"))
-ALLOWED_ORIGIN = os.environ.get("MP_ALLOWED_ORIGIN", "https://data.windxiao.site")
+ALLOWED_ORIGIN = os.environ.get("MP_ALLOWED_ORIGIN", "https://data.example.com")
 
 
 def load_config():
