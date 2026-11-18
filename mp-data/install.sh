@@ -33,7 +33,15 @@ mkdir -p "$APP_DIR"/{app,db,raw,site,logs,backup}
 
 # 3. 代码（总是覆盖）
 install -m 644 "$SRC_DIR"/app/*.py "$APP_DIR"/app/
-say "已部署代码"
+if compgen -G "$SRC_DIR/app/*.css" > /dev/null; then
+    install -m 644 "$SRC_DIR"/app/*.css "$APP_DIR"/app/
+fi
+say "已部署代码（含样式表）"
+
+# 3b. 静态样式（总是覆盖，style.css 随代码一起发布）
+mkdir -p "$APP_DIR"/site
+install -m 644 "$SRC_DIR"/site/style.css "$APP_DIR"/site/
+say "已部署 site/style.css"
 
 # 4. 配置（只在不存在时写入，避免覆盖线上修改）
 if [[ -f "$APP_DIR/app/config.json" ]]; then

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""生成静态页面：site/index.html（盘前一页纸）、site/weekly.html、site/data/summary.json。
+"""生成静态页面：site/index.html（盘前看板）、site/weekly.html、site/data/summary.json。
 
-只用标准库。页面不依赖任何 CDN 或后端接口。
+只用标准库。页面引用外部 site/style.css，不内联样式。
 """
 import datetime
 import html
@@ -19,96 +19,51 @@ APP = os.path.join(ROOT, "app")
 DB_PATH = os.path.join(ROOT, "db", "mp.sqlite3")
 SITE = os.path.join(ROOT, "site")
 
-CSS = """
-* { box-sizing: border-box; }
-body { margin:0; padding:20px 16px 60px; background:#f6f7f9; color:#1f2328;
-       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
-       font-size:14px; line-height:1.6; }
-.wrap { max-width:1180px; margin:0 auto; }
-h1 { font-size:20px; margin:0; }
-h2 { font-size:15px; margin:22px 0 10px; padding-bottom:6px; border-bottom:2px solid #e5e7eb; }
-header { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px; margin-bottom:16px; }
-.meta { color:#6b7280; font-size:12px; }
-nav { margin-left:auto; font-size:13px; display:flex; gap:14px; }
-.lead-card { background:#fff; border:1px solid #e5e7eb; border-left:4px solid #0969da;
-             border-radius:10px; padding:16px 18px; font-size:17px; font-weight:600; }
-.lead-card .note { font-weight:400; }
-.dims { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:14px 0 4px; }
-.dim { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:12px 14px; }
-.dim-name { font-size:12px; color:#6b7280; }
-.dim-state { font-size:17px; font-weight:700; margin:2px 0 6px; }
-.dim-num { font-size:12px; color:#57606a; font-variant-numeric:tabular-nums; }
-.dim.tight { border-left:4px solid #0a7d32; } .dim.tight .dim-state { color:#0a7d32; }
-.dim.loose { border-left:4px solid #c0392b; } .dim.loose .dim-state { color:#c0392b; }
-.dim.neutral { border-left:4px solid #d0d7de; } .dim.neutral .dim-state { color:#6b7280; }
-.grid { display:grid; grid-template-columns:2fr 1fr; gap:16px; align-items:start; }
-.col-main h2:first-child, .col-side h2:first-child { margin-top:0; }
-@media (max-width:900px) {
-  .dims { grid-template-columns:repeat(2,1fr); }
-  .grid { grid-template-columns:1fr; }
-}
-.card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px 16px; margin-bottom:14px; }
-.note { color:#6b7280; font-size:12px; margin-top:6px; }
-table { width:100%; border-collapse:collapse; }
-th,td { padding:7px 9px; text-align:left; border-bottom:1px solid #eef0f3; font-size:13px; }
-th { color:#6b7280; font-weight:500; background:#fafbfc; }
-th.num, td.num { text-align:right; font-variant-numeric:tabular-nums; }
-tr:last-child td { border-bottom:none; }
-.tablewrap { overflow-x:auto; }
-.star { display:inline-block; padding:0 6px; margin-left:6px; border-radius:8px;
-        background:#0969da; color:#fff; font-size:11px; font-weight:600; vertical-align:1px; }
-.mainrow td { background:#f7fbff; }
-.up { color:#0a7d32; } .dn { color:#c0392b; } .flat { color:#6b7280; }
-.warn { background:#fff8e1; border:1px solid #ffe082; color:#8a6d00;
-        border-radius:8px; padding:10px 14px; margin-bottom:10px; font-size:13px; }
-.info { background:#eef6ff; border:1px solid #b6d7f7; color:#1a4f8a;
-        border-radius:8px; padding:10px 14px; margin-bottom:10px; font-size:13px; }
-.newslist { margin:0; padding-left:0; list-style:none; max-height:420px; overflow-y:auto; }
-.newslist li { padding:7px 0; border-bottom:1px dashed #eef0f3; font-size:13px; line-height:1.65; }
-.newslist li:last-child { border-bottom:none; }
-.newslist li.hl { background:#fff8e1; margin:0 -8px; padding:7px 8px; border-radius:6px; }
-.ntime { color:#8c959f; font-size:12px; margin-right:8px; font-variant-numeric:tabular-nums; }
-.nstar { color:#e6a400; letter-spacing:1px; font-size:12px; }
-details.checks { background:#fff; border:1px solid #e5e7eb; border-radius:10px;
-                 padding:12px 16px; margin-top:16px; }
-details.checks summary { cursor:pointer; font-size:13px; color:#57606a; }
-details.checks summary::before { content:"\\25B8  "; }
-details.checks[open] summary::before { content:"\\25BE  "; }
-details.checks .body { margin-top:10px; }
-footer { color:#9ca3af; font-size:12px; margin-top:26px; border-top:1px solid #e5e7eb; padding-top:14px; }
-a { color:#0969da; text-decoration:none; }
-.hint { color:#8c959f; font-size:11px; margin-top:2px; }
-.formbar { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-top:14px; }
-.formbar label { font-size:13px; color:#57606a; display:flex; gap:6px; align-items:center; }
-input[type=text], input[type=date] { padding:6px 8px; border:1px solid #d0d7de;
-        border-radius:6px; font-size:13px; font-family:inherit; color:#1f2328; background:#fff; }
-input[data-series] { width:100%; }
-#save-btn { background:#0969da; color:#fff; border:0; padding:8px 18px;
-        border-radius:6px; font-size:13px; cursor:pointer; font-family:inherit; }
-#save-btn:disabled { opacity:.6; cursor:default; }
-#form-msg { margin-top:10px; font-size:13px; min-height:18px; }
-.gate-body { display:flex; align-items:center; justify-content:center; min-height:100vh;
-        margin:0; padding:20px; background:#fbf7f2; }
-.gate-card { width:100%; max-width:420px; background:#fff; border:1px solid #f0e6dc;
-        border-radius:16px; padding:30px 28px; box-shadow:0 10px 34px rgba(120,90,60,.06); }
-.gate-card h1 { font-size:21px; margin:0 0 6px; }
-.gate-sub { color:#8a7f76; font-size:13px; margin:0 0 20px; line-height:1.6; }
-.gate-form { display:flex; gap:8px; }
-.gate-form input { flex:1; padding:10px 12px; border:1px solid #e6dcd2; border-radius:8px;
-        font-size:14px; font-family:inherit; color:#1f2328; background:#fff; }
-.gate-form button { background:#e8622a; color:#fff; border:0; border-radius:8px;
-        padding:10px 18px; font-size:14px; cursor:pointer; font-family:inherit; white-space:nowrap; }
-.gate-form button:disabled { opacity:.6; cursor:default; }
-.gate-msg { margin-top:12px; font-size:13px; min-height:18px; }
-.gate-foot { margin-top:20px; padding-top:12px; border-top:1px solid #f0e6dc;
-        color:#b0a69c; font-size:12px; display:flex; justify-content:space-between; }
-.gate-row { display:flex; gap:10px; margin:10px 0; flex-wrap:wrap; }
-.gate-row button { background:#f6f1ec; color:#8a5a3a; border:1px solid #eadfd4;
-        border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; font-family:inherit; }
-.gate-row button:hover { background:#f0e8e0; }
-.code-box { margin-top:14px; padding:14px; background:#fff8f2; border:1px dashed #e8622a;
-        border-radius:10px; font-size:16px; letter-spacing:1px; text-align:center;
-        font-family:ui-monospace,Consolas,monospace; }
+# 页面引用的外部 CSS 路径（相对于 site/）
+CSS_HREF = "style.css"
+
+# ─── 通用 JS（相对时间 + 新闻展开 + 保存表单） ───────────────────────────────
+
+COMMON_JS = """
+<script>
+(function () {
+  // 相对时间：把 data-time 属性的 ISO 时间戳转为"X 分钟前"
+  function reltime(isoStr) {
+    if (!isoStr) return '';
+    var d = new Date(isoStr.replace(' ', 'T'));
+    if (isNaN(d.getTime())) return isoStr;
+    var diff = (Date.now() - d.getTime()) / 1000;
+    if (diff < 60)   return Math.round(diff) + ' 秒前';
+    if (diff < 3600) return Math.round(diff / 60) + ' 分钟前';
+    if (diff < 86400)return Math.round(diff / 3600) + ' 小时前';
+    return Math.round(diff / 86400) + ' 天前';
+  }
+  document.querySelectorAll('[data-time]').forEach(function (el) {
+    var r = reltime(el.getAttribute('data-time'));
+    if (r) el.textContent = r;
+  });
+
+  // 新闻"展开更多"
+  var more = document.querySelector('.news-more');
+  if (more) {
+    more.addEventListener('click', function () {
+      var ul = document.querySelector('.newslist');
+      if (!ul) return;
+      ul.classList.toggle('expanded');
+      more.textContent = ul.classList.contains('expanded') ? '收起 ▲' : '展开更多 ▼';
+    });
+  }
+
+  // 迷你涨跌柱宽度（data-delta / data-maxdelta）
+  document.querySelectorAll('.mini-bar[data-delta]').forEach(function (el) {
+    var d = parseFloat(el.getAttribute('data-delta') || '0');
+    var mx = parseFloat(el.closest('table').getAttribute('data-maxdelta') || '50');
+    if (!mx) return;
+    var pct = Math.min(Math.abs(d) / mx * 100, 100);
+    el.style.width = pct + '%';
+  });
+})();
+</script>
 """
 
 FORM_JS = """
@@ -119,7 +74,7 @@ FORM_JS = """
   function setMsg(t, ok) {
     if (!msg) return;
     msg.textContent = t;
-    msg.style.color = ok ? '#0a7d32' : '#c0392b';
+    msg.style.color = ok ? '#3f6e51' : '#9e4a37';
   }
   if (!btn) return;
   btn.addEventListener('click', function () {
@@ -158,8 +113,8 @@ FORM_JS = """
         }).join('；'), false);
         btn.disabled = false;
       } else {
-        setMsg('已保存 ' + res.length + ' 项，刷新中…', true);
-        setTimeout(function () { location.reload(); }, 500);
+        setMsg('✓ 已保存 ' + res.length + ' 项，刷新中…', true);
+        setTimeout(function () { location.reload(); }, 600);
       }
     }).catch(function (e) {
       setMsg('网络错误：' + e, false);
@@ -170,14 +125,15 @@ FORM_JS = """
 </script>
 """
 
+# ─── 常量 ────────────────────────────────────────────────────────────────────
+
 DIM_META = {
-    "cost": "成本端",
+    "cost":   "成本端",
     "supply": "供给端",
     "demand": "需求端",
     "struct": "结构",
 }
 
-# 各维度的状态措辞与配色（1=偏紧/偏强，0=中性，-1=偏松/偏弱）
 DIM_STATE = {
     "cost":   {1: "偏紧", 0: "中性", -1: "偏松"},
     "supply": {1: "偏紧", 0: "中性", -1: "偏松"},
@@ -187,8 +143,9 @@ DIM_STATE = {
 DIM_TAG = {1: "tight", 0: "neutral", -1: "loose"}
 
 
+# ─── 工具函数 ─────────────────────────────────────────────────────────────────
+
 def dim_sign(v):
-    """把维度得分归一化到 -1 / 0 / 1（结构维度可能累加到 ±2）。"""
     return 1 if v > 0 else (-1 if v < 0 else 0)
 
 
@@ -230,7 +187,6 @@ def arrow(delta):
 
 
 def latest_pair(conn, sid):
-    """返回 (最新行, 前一行, 变化量)。"""
     rows = db.history(conn, sid, limit=2)
     if not rows:
         return None, None, None
@@ -241,7 +197,6 @@ def latest_pair(conn, sid):
 
 
 def percentile(conn, sid):
-    """最新值在历史中的百分位（0-100）。样本不足返回 None。"""
     rows = db.history(conn, sid)
     if len(rows) < 8:
         return None
@@ -261,11 +216,70 @@ def stale_days(row):
     return (datetime.date.today() - t.date()).days
 
 
+def sparkline_svg(values, width=64, height=22):
+    """生成内联 SVG 迷你折线图，只用标准库。values 为数值列表（升序时间）。"""
+    if not values or len(values) < 2:
+        return ""
+    mn, mx = min(values), max(values)
+    rng = mx - mn
+    if rng == 0:
+        # 水平线
+        y = height / 2
+        pts = " ".join("%.1f,%.1f" % (i * width / (len(values) - 1), y)
+                       for i in range(len(values)))
+    else:
+        pts = " ".join(
+            "%.1f,%.1f" % (
+                i * width / (len(values) - 1),
+                height - (v - mn) / rng * height,
+            )
+            for i, v in enumerate(values)
+        )
+    return (
+        '<svg class="sparkline" width="%d" height="%d" viewBox="0 0 %d %d">'
+        '<polyline points="%s" fill="none" stroke="#336650" stroke-width="1.5"'
+        ' stroke-linejoin="round" stroke-linecap="round"/></svg>'
+        % (width, height, width, height, pts)
+    )
+
+
+def _page_head(title, active_page=""):
+    """返回 <head> 标签块（引用外部 CSS）。"""
+    return (
+        '<!doctype html>\n<html lang="zh-CN"><head><meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
+        '<title>%s</title>\n'
+        '<link rel="stylesheet" href="%s">\n'
+        '</head>\n' % (html.escape(title), CSS_HREF)
+    )
+
+
+def _nav(active=""):
+    links = [
+        ("index.html",  "盘前看板"),
+        ("brief.html",  "每日简报"),
+        ("macro.html",  "全局简报"),
+        ("weekly.html", "周度数据"),
+        ("input.html",  "数据录入"),
+        ("admin.html",  "管理"),
+    ]
+    items = "".join(
+        '<a href="%s"%s>%s</a>' % (
+            href,
+            ' class="active"' if active == href else "",
+            label,
+        )
+        for href, label in links
+    )
+    return '<nav aria-label="主导航">%s</nav>' % items
+
+
+# ─── build 数据层（不改） ─────────────────────────────────────────────────────
+
 def build(conn, cfg):
     th = cfg["thresholds"]
     data = {"thresholds": th}
 
-    # ---- 行情（合约按交割月滚动） ----
     groups = contract_mod.groups(cfg)
     m_codes = groups["M"]
     quotes = []
@@ -282,7 +296,6 @@ def build(conn, cfg):
         })
     data["quotes"] = quotes
 
-    # 主力 = 当前活跃合约里持仓量最大的
     main = None
     if quotes:
         main = max(quotes, key=lambda q: q["oi"] or 0)["code"]
@@ -291,7 +304,6 @@ def build(conn, cfg):
     data["main"] = main
     data["active"] = m_codes
 
-    # ---- 外盘 ----
     us_last, us_prev, us_delta = latest_pair(conn, "A3.S.close")
     data["us"] = {"last": us_last["value"] if us_last else None,
                   "delta": us_delta,
@@ -299,7 +311,6 @@ def build(conn, cfg):
                   if us_last and us_prev else None,
                   "date": us_last["date"] if us_last else None}
 
-    # ---- 现货 / 基差 ----
     spot, _, _ = latest_pair(conn, cfg["spot"]["series"])
     basis, _, basis_delta = latest_pair(conn, "A5.basis.main")
     data["spot"] = {"value": spot["value"] if spot else None,
@@ -308,7 +319,6 @@ def build(conn, cfg):
                      "delta": basis_delta,
                      "date": basis["date"] if basis else None}
 
-    # ---- 库存与分位 ----
     inv, inv_prev, inv_delta = latest_pair(conn, "B1.inventory")
     inv_pct = percentile(conn, "B1.inventory")
     data["inventory"] = {
@@ -317,7 +327,6 @@ def build(conn, cfg):
         "delta": inv_delta, "pct": inv_pct,
     }
 
-    # ---- 价差 ----
     spreads = []
     for i in range(len(m_codes) - 1):
         sid = "A6.spread.%s-%s" % (m_codes[i], m_codes[i + 1])
@@ -330,7 +339,6 @@ def build(conn, cfg):
         spreads.append({"name": "豆粕−菜粕", "value": r_mr["value"], "delta": None})
     data["spreads"] = spreads
 
-    # ---- 四维状态 ----
     dims = {}
 
     cost = 0
@@ -418,11 +426,16 @@ def build(conn, cfg):
     manual = []
     for sid, meta in cfg["manual_series"].items():
         row = db.latest(conn, sid)
+        # 近 3 次历史值
+        hist = db.history(conn, sid, limit=4)
+        recent_vals = [{"date": r["date"], "value": r["value"]}
+                       for r in reversed(hist)][-4:-1]  # 最多 3 次，不含当前
         manual.append({
             "sid": sid, "name": meta["name"], "unit": meta["unit"],
             "hint": meta.get("hint", ""),
             "value": row["value"] if row else None,
             "date": row["date"] if row else None,
+            "recent": recent_vals,
         })
     data["manual"] = manual
     return data
@@ -445,7 +458,6 @@ def make_lead(dims, data):
 
 
 def make_checks(conn, cfg, data):
-    """数据体检：把 stale / missing / manual 全部暴露出来。"""
     th = cfg["thresholds"]
     out = []
 
@@ -502,148 +514,7 @@ def make_checks(conn, cfg, data):
     return out
 
 
-def render_index(cfg, data):
-    today = datetime.date.today().isoformat()
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-
-    cards = []
-    for key in ("cost", "supply", "demand", "struct"):
-        v = data["dims"][key]
-        if key == "demand" and data.get("demand_missing"):
-            tag, text = "neutral", "缺数据"
-        else:
-            sign = dim_sign(v)
-            tag = DIM_TAG.get(sign, "neutral")
-            text = DIM_STATE[key].get(sign, "中性")
-        nums = "".join("<div class='dim-num'>%s</div>" % html.escape(x)
-                       for x in dim_brief(key, data))
-        cards.append("<div class='dim %s'><div class='dim-name'>%s</div>"
-                     "<div class='dim-state'>%s</div>%s</div>"
-                     % (tag, DIM_META[key], text, nums))
-
-    quote_rows = "".join(
-        "<tr%s><td>%s%s</td><td class='num'>%s</td><td class='num %s'>%s %s</td>"
-        "<td class='num'>%s</td><td class='num'>%s</td></tr>"
-        % (" class='mainrow'" if q["is_main"] else "", q["code"],
-           " <span class='star'>主力</span>" if q["is_main"] else "",
-           fmt(q["settle"], 1), cls_of(q["delta"]),
-           fmt(q["delta"], 1), arrow(q["delta"]),
-           fmt(q["oi"], 0) if q["oi"] else "—",
-           fmt(q["vol"], 0) if q["vol"] else "—")
-        for q in data["quotes"]
-    ) or "<tr><td colspan='5'>暂无行情数据</td></tr>"
-
-    spread_rows = "".join(
-        "<tr><td>%s</td><td class='num %s'>%s %s</td></tr>"
-        % (s["name"], cls_of(s["delta"]), fmt(s["value"], 1), arrow(s["delta"]))
-        for s in data["spreads"]
-    ) or "<tr><td colspan='2'>暂无价差数据</td></tr>"
-
-    check_html = "".join(
-        "<div class='%s'><b>%s</b> — %s%s</div>"
-        % ("warn" if t in ("过期", "缺失", "冲突") else "info",
-           html.escape(t), html.escape(m),
-           ("　→ " + html.escape(a)) if a else "")
-        for t, m, a in data["checks"]
-    )
-
-    news_items = []
-    for n in data.get("news", []):
-        t = (n.get("pub_time") or "")[5:16]
-        title = n.get("title") or ""
-        text = n.get("content") or ""
-        hl = " class='hl'" if n.get("level") == "high" else ""
-        link = ""
-        if n.get("url"):
-            link = " <a href='%s' target='_blank' rel='noopener'>原文</a>" % html.escape(n["url"])
-        head = ("<b>%s</b> " % html.escape(title)) if title else ""
-        news_items.append("<li%s><span class='ntime'>%s</span>%s%s%s</li>"
-                          % (hl, html.escape(t), head, html.escape(text[:170]), link))
-    news_html = ""
-    if news_items:
-        news_html = ("<h2>相关资讯</h2><div class='card'><ul class='newslist'>%s</ul>"
-                     "<div class='note'>金十数据，按关键词过滤；黄色为重要关键词</div>"
-                     "</div>" % "".join(news_items))
-
-    cal_items = []
-    for c in data.get("calendar", []):
-        sub = "%s　%s" % ((c.get("pub_time") or "")[5:16], c.get("content") or "")
-        cal_items.append(
-            "<tr><td class='nstar'>%s</td><td>%s<div class='hint'>%s</div></td></tr>"
-            % (html.escape(c.get("keywords") or ""), html.escape(c.get("title") or ""),
-               html.escape(sub)))
-    cal_html = ""
-    if cal_items:
-        cal_html = ("<h2>本周重要数据</h2><div class='card'><table>"
-                    "<thead><tr><th style='width:60px'>星级</th><th>事件</th></tr></thead>"
-                    "<tbody>%s</tbody></table></div>" % "".join(cal_items))
-
-    aside = news_html + cal_html or "<div class='card'><div class='hint'>暂无资讯</div></div>"
-
-    issues = [c for c in data["checks"] if c[0] in ("过期", "缺失", "冲突")]
-    notes = len(data["checks"]) - len(issues)
-    open_attr = " open" if issues else ""
-    if issues:
-        summary = "数据体检 · %d 项待处理" % len(issues)
-    elif notes:
-        summary = "数据体检 · 正常（另有 %d 条说明）" % notes
-    else:
-        summary = "数据体检 · 全部正常"
-
-    return """<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{title} · {today}</title><style>{css}</style></head>
-<body><div class="wrap">
-<header>
-  <h1>{title}</h1>
-  <div class="meta">{today} · 主力 {main} · {now} 更新</div>
-  <nav><a href="brief.html">豆粕简报</a><a href="macro.html">全局简报</a><a href="input.html">录入数据</a><a href="weekly.html">周度数据</a><a href="admin.html">管理</a></nav>
-</header>
-
-<div class="lead-card">{lead}<div class="note">本句由规则根据下方数据生成，不是投资建议。</div></div>
-
-<div class="dims">{cards}</div>
-
-<div class="grid">
-  <div class="col-main">
-    <h2>行情（结算价）</h2>
-    <div class="card">
-      <div class="note" style="margin:0 0 8px">合约按交割月自动滚动，进入交割月的合约不再展示。</div>
-      <div class="tablewrap"><table>
-        <thead><tr><th>合约</th><th class="num">结算价</th><th class="num">涨跌</th>
-        <th class="num">持仓量</th><th class="num">成交量</th></tr></thead>
-        <tbody>{quote_rows}</tbody></table></div>
-    </div>
-    <h2>价差结构</h2>
-    <div class="card"><table>
-      <thead><tr><th>价差</th><th class="num">数值（元/吨）</th></tr></thead>
-      <tbody>{spread_rows}</tbody></table></div>
-  </div>
-  <aside class="col-side">
-    {aside}
-  </aside>
-</div>
-
-<details class="checks"{open_attr}>
-  <summary>{summary}</summary>
-  <div class="body">{check_html}</div>
-</details>
-
-<footer>
-数据来源：新浪财经（行情/外盘/汇率）、生意社（现货对照）、金十数据（资讯/日历），其余为手工录入。<br>
-行情为结算价口径；基差 = 现货 − 主力结算价；月差 = 近月 − 远月。本页仅供参考，不构成投资建议。
-</footer>
-</div></body></html>
-""".format(title=html.escape(cfg["site_title"]), today=today, now=now,
-           main=html.escape(str(data["main"])), lead=html.escape(data["lead"]),
-           cards="".join(cards), quote_rows=quote_rows,
-           spread_rows=spread_rows, check_html=check_html,
-           aside=aside, open_attr=open_attr, summary=summary, css=CSS)
-
-
 def dim_brief(key, data):
-    """四维卡片里的短数值，最多两行。"""
     if key == "cost":
         us = data["us"]
         if us["last"] is None:
@@ -680,20 +551,352 @@ def dim_brief(key, data):
     return []
 
 
+# ─── render_index ─────────────────────────────────────────────────────────────
+
+def render_index(cfg, data):
+    today = datetime.date.today().isoformat()
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    # ── Hero strip ──
+    main_q = next((q for q in data["quotes"] if q["is_main"]), None)
+    if main_q:
+        price_str = fmt(main_q["settle"], 1)
+        delta_cls = cls_of(main_q["delta"])
+        delta_str = ("%+.1f %s" % (main_q["delta"], arrow(main_q["delta"]))) if main_q["delta"] is not None else "—"
+        hero_left = """
+<div class="hero-cell">
+  <div class="hero-eyebrow">主力合约 · 结算价</div>
+  <div class="hero-main-price">%s</div>
+  <div class="hero-contract">%s &nbsp;元/吨 · %s</div>
+  <div class="hero-delta %s">%s</div>
+</div>""" % (
+            html.escape(price_str),
+            html.escape(main_q["code"]),
+            html.escape(main_q["date"] or ""),
+            delta_cls,
+            html.escape(delta_str),
+        )
+    else:
+        hero_left = '<div class="hero-cell"><div class="hero-eyebrow">主力合约</div><div class="hero-val">暂无数据</div></div>'
+
+    # 中间格：现货 / 基差 / 美豆
+    spot_val = fmt(data["spot"]["value"], 0) if data["spot"]["value"] is not None else "—"
+    spot_date = data["spot"]["date"] or ""
+    basis_val = fmt(data["basis"]["value"], 0) if data["basis"]["value"] is not None else "—"
+    basis_cls = cls_of(data["basis"]["value"])
+    us_val = (fmt(data["us"]["last"], 0) + " 美分") if data["us"]["last"] is not None else "—"
+    us_chg = ("%+.2f%%" % data["us"]["chg_pct"]) if data["us"]["chg_pct"] is not None else ""
+    hero_mid = """
+<div class="hero-cell">
+  <div class="hero-kv">
+    <div class="hero-label">现货价（华东）</div>
+    <div class="hero-val">%s <span style="font-size:12px;opacity:.6">元/吨</span></div>
+    <div class="hero-sub">%s</div>
+  </div>
+  <div class="hero-kv">
+    <div class="hero-label">基差（主力）</div>
+    <div class="hero-val %s">%s</div>
+  </div>
+  <div class="hero-kv">
+    <div class="hero-label">CBOT 美豆</div>
+    <div class="hero-val">%s <span style="font-size:12px;opacity:.6">%s</span></div>
+  </div>
+</div>""" % (
+        html.escape(spot_val), html.escape(spot_date),
+        basis_cls, html.escape(basis_val),
+        html.escape(us_val), html.escape(us_chg),
+    )
+
+    # 右侧：判断语
+    hero_right = """
+<div class="hero-cell">
+  <div class="hero-eyebrow">盘前判断</div>
+  <div class="hero-lead">%s</div>
+  <div class="hero-lead-note">规则根据下方数据生成，仅供研究参考。</div>
+</div>""" % html.escape(data["lead"])
+
+    hero_html = '<div class="hero">%s%s%s</div>' % (hero_left, hero_mid, hero_right)
+
+    # ── 四维状态条 ──
+    dim_cards = []
+    for key in ("cost", "supply", "demand", "struct"):
+        v = data["dims"][key]
+        if key == "demand" and data.get("demand_missing"):
+            tag, text = "neutral", "缺数据"
+        else:
+            sign = dim_sign(v)
+            tag = DIM_TAG.get(sign, "neutral")
+            text = DIM_STATE[key].get(sign, "中性")
+        data_lines = dim_brief(key, data)
+        data_html = "".join("<div>%s</div>" % html.escape(x) for x in data_lines)
+        dim_cards.append(
+            "<div class='dim %s'>"
+            "<div class='dim-name'>%s</div>"
+            "<div class='dim-state'>%s</div>"
+            "<div class='dim-data'>%s</div>"
+            "</div>" % (tag, DIM_META[key], html.escape(text), data_html)
+        )
+    dims_html = '<div class="dims">%s</div>' % "".join(dim_cards)
+
+    # ── 合约行情表（带迷你涨跌柱） ──
+    if data["quotes"]:
+        max_abs_delta = max((abs(q["delta"]) for q in data["quotes"] if q["delta"] is not None), default=50) or 50
+    else:
+        max_abs_delta = 50
+
+    quote_rows = ""
+    for q in data["quotes"]:
+        cls = " class='mainrow'" if q["is_main"] else ""
+        star = " <span class='star'>主力</span>" if q["is_main"] else ""
+        oi_wan = fmt(q["oi"] / 10000, 1) if q["oi"] else "—"
+        vol_wan = fmt(q["vol"] / 10000, 1) if q["vol"] else "—"
+        # 迷你柱
+        bar_cls = cls_of(q["delta"])
+        bar = ("<div class='mini-bar %s' data-delta='%.1f'></div>"
+               % (bar_cls, q["delta"] if q["delta"] is not None else 0))
+        quote_rows += (
+            "<tr%s><td>%s%s</td>"
+            "<td class='num'>%s</td>"
+            "<td class='num %s'>%s %s</td>"
+            "<td class='bar-cell'>%s</td>"
+            "<td class='num'>%s</td>"
+            "<td class='num'>%s</td></tr>"
+        ) % (
+            cls, q["code"], star,
+            fmt(q["settle"], 1),
+            cls_of(q["delta"]), fmt(q["delta"], 1), arrow(q["delta"]),
+            bar,
+            oi_wan, vol_wan,
+        )
+    if not quote_rows:
+        quote_rows = "<tr><td colspan='6'>暂无行情数据</td></tr>"
+
+    quote_html = """
+<h2>行情（结算价）</h2>
+<div class="card">
+  <div class="note" style="margin:0 0 8px">合约按交割月自动滚动，进入交割月的合约不再展示。持仓/成交量单位：万手。</div>
+  <div class="tablewrap"><table data-maxdelta="%.1f">
+    <thead><tr><th>合约</th><th class="num">结算价</th><th class="num">涨跌</th>
+    <th class="bar-cell"></th><th class="num">持仓</th><th class="num">成交</th></tr></thead>
+    <tbody>%s</tbody>
+  </table></div>
+</div>""" % (max_abs_delta, quote_rows)
+
+    # ── 价差 ──
+    spread_rows = "".join(
+        "<tr><td>%s</td><td class='num %s'>%s %s</td></tr>"
+        % (s["name"], cls_of(s["delta"]), fmt(s["value"], 1), arrow(s["delta"]))
+        for s in data["spreads"]
+    ) or "<tr><td colspan='2'>暂无价差数据</td></tr>"
+
+    spread_html = """
+<h2>价差结构</h2>
+<div class="card"><table>
+  <thead><tr><th>价差</th><th class="num">数值（元/吨）</th></tr></thead>
+  <tbody>%s</tbody>
+</table></div>""" % spread_rows
+
+    # ── 核心指标 2×2 ──
+    def kpi_card(label, val_str, sub_str, pct_val=None):
+        pct_html = ""
+        if pct_val is not None:
+            pct_html = (
+                "<div class='pct-bar-wrap'><div class='pct-bar' style='width:%.0f%%'></div></div>"
+                "<div class='pct-label'>历史 %.0f%% 分位</div>" % (pct_val, pct_val)
+            )
+        return (
+            "<div class='kpi-card'>"
+            "<div class='kpi-label'>%s</div>"
+            "<div class='kpi-val'>%s</div>"
+            "<div class='kpi-sub'>%s</div>"
+            "%s</div>"
+        ) % (html.escape(label), html.escape(val_str), html.escape(sub_str), pct_html)
+
+    spot_v = fmt(data["spot"]["value"], 0)
+    spot_sub = "华东 · %s" % (data["spot"]["date"] or "未录入")
+    basis_v = fmt(data["basis"]["value"], 0)
+    basis_sub_parts = []
+    if data["basis"]["delta"] is not None:
+        basis_sub_parts.append("环比 %+.0f" % data["basis"]["delta"])
+    if data["basis"]["date"]:
+        basis_sub_parts.append(data["basis"]["date"])
+    basis_sub = " · ".join(basis_sub_parts) or "暂无"
+
+    inv_v = (fmt(data["inventory"]["value"], 1) + " 万吨") if data["inventory"]["value"] is not None else "—"
+    inv_sub = data["inventory"]["date"] or "未录入"
+
+    hog_v = (fmt(data["hog_profit"]["value"], 0) + " 元/头") if data["hog_profit"]["value"] is not None else "—"
+    hog_sub = data["hog_profit"]["date"] or "未录入"
+
+    kpi_html = (
+        "<div class='kpi-grid'>"
+        + kpi_card("现货价（华东）", spot_v + " 元/吨", spot_sub)
+        + kpi_card("基差（主力）", basis_v + " 元/吨", basis_sub)
+        + kpi_card("油厂豆粕库存", inv_v, inv_sub, data["inventory"]["pct"])
+        + kpi_card("生猪养殖利润", hog_v, hog_sub)
+        + "</div>"
+    )
+
+    # ── 右侧：资讯 ──
+    news_items = []
+    for idx, n in enumerate(data.get("news", [])):
+        t = n.get("pub_time") or ""
+        title = n.get("title") or ""
+        text = n.get("content") or ""
+        hl = " class='hl%s'" % (" news-hidden" if idx >= 6 else "") if n.get("level") == "high" else (
+            " class='news-hidden'" if idx >= 6 else "")
+        link = ""
+        if n.get("url"):
+            link = " <a href='%s' target='_blank' rel='noopener'>原文</a>" % html.escape(n["url"])
+        head = ("<b>%s</b> " % html.escape(title)) if title else ""
+        news_items.append(
+            "<li%s><span class='ntime' data-time='%s'>%s</span>%s%s%s</li>"
+            % (hl, html.escape(t), html.escape(t[5:16]), head, html.escape(text[:160]), link)
+        )
+
+    news_html = ""
+    if news_items:
+        more_btn = ""
+        if len(news_items) > 6:
+            more_btn = "<span class='news-more'>展开更多 ▼</span>"
+        news_html = (
+            "<h2>相关资讯</h2><div class='card'>"
+            "<ul class='newslist'>%s</ul>%s"
+            "<div class='note'>金十数据，按关键词过滤；红色高亮为重要关键词</div>"
+            "</div>"
+        ) % ("".join(news_items), more_btn)
+
+    cal_items = []
+    for c in data.get("calendar", []):
+        sub = "%s　%s" % ((c.get("pub_time") or "")[5:16], c.get("content") or "")
+        cal_items.append(
+            "<tr><td class='nstar'>%s</td><td>%s<div class='hint'>%s</div></td></tr>"
+            % (html.escape(c.get("keywords") or ""), html.escape(c.get("title") or ""),
+               html.escape(sub))
+        )
+    cal_html = ""
+    if cal_items:
+        cal_html = (
+            "<h2>本周重要数据</h2><div class='card'><table>"
+            "<thead><tr><th style='width:60px'>星级</th><th>事件</th></tr></thead>"
+            "<tbody>%s</tbody></table></div>"
+        ) % "".join(cal_items)
+
+    aside = news_html + cal_html or "<div class='card'><div class='hint'>暂无资讯</div></div>"
+
+    # ── 数据体检 ──
+    check_html = "".join(
+        "<div class='%s'><b>%s</b> — %s%s</div>"
+        % ("warn" if t in ("过期", "缺失", "冲突") else "info",
+           html.escape(t), html.escape(m),
+           ("　→ " + html.escape(a)) if a else "")
+        for t, m, a in data["checks"]
+    )
+
+    issues = [c for c in data["checks"] if c[0] in ("过期", "缺失", "冲突")]
+    notes = len(data["checks"]) - len(issues)
+    open_attr = " open" if issues else ""
+    if issues:
+        summary = "数据体检 · %d 项待处理" % len(issues)
+    elif notes:
+        summary = "数据体检 · 正常（另有 %d 条说明）" % notes
+    else:
+        summary = "数据体检 · 全部正常"
+
+    return """{head}
+<body><div class="wrap">
+<header>
+  <h1>{title}</h1>
+  <div class="meta">{today} · 主力 {main} · {now} 更新</div>
+  {nav}
+</header>
+
+{hero}
+{dims}
+
+<div class="grid">
+  <div class="col-main">
+    {kpi}
+    {quote_html}
+    {spread_html}
+  </div>
+  <aside class="col-side">
+    {aside}
+  </aside>
+</div>
+
+<details class="checks"{open_attr}>
+  <summary>{summary}</summary>
+  <div class="body">{check_html}</div>
+</details>
+
+<footer>
+数据来源：新浪财经（行情/外盘/汇率）、生意社（现货对照）、金十数据（资讯/日历），其余为手工录入。<br>
+行情为结算价口径；基差 = 现货 − 主力结算价；月差 = 近月 − 远月。本页仅供参考，不构成投资建议。
+</footer>
+</div>
+{js}
+</body></html>
+""".format(
+        head=_page_head("%s · %s" % (cfg["site_title"], today)),
+        title=html.escape(cfg["site_title"]),
+        today=today, now=now,
+        main=html.escape(str(data["main"])),
+        nav=_nav("index.html"),
+        hero=hero_html,
+        dims=dims_html,
+        kpi=kpi_html,
+        quote_html=quote_html,
+        spread_html=spread_html,
+        aside=aside,
+        open_attr=open_attr,
+        summary=html.escape(summary),
+        check_html=check_html,
+        js=COMMON_JS,
+    )
+
+
+# ─── render_input ─────────────────────────────────────────────────────────────
+
 def render_input(conn, cfg, data):
     today = datetime.date.today().isoformat()
 
-    rows = []
+    # 录入卡
+    input_cards = []
     for m in data["manual"]:
-        cur = ("%s %s" % (fmt(m["value"], 2), m["unit"])) if m["value"] is not None else "—"
-        rows.append(
-            "<tr><td><b>%s</b><div class='hint'>%s</div></td>"
-            "<td class='num'>%s<div class='hint'>%s</div></td>"
-            "<td><input type='text' inputmode='decimal' data-series='%s' "
-            "placeholder='留空=不修改'></td></tr>"
-            % (html.escape(m["name"]), html.escape(m["hint"]), cur,
-               html.escape(m["date"] or ""), html.escape(m["sid"])))
+        cur_str = ("%s %s" % (fmt(m["value"], 2), m["unit"])) if m["value"] is not None else "—"
+        date_str = m["date"] or "未录入"
 
+        # 近 3 次历史参考
+        hist_str = ""
+        if m.get("recent"):
+            parts = ["%s:%s" % (r["date"][5:], fmt(r["value"], 2)) for r in m["recent"]]
+            hist_str = "近期：" + " / ".join(parts)
+
+        input_cards.append("""
+<div class="input-card">
+  <div class="input-card-info">
+    <div class="input-card-name">%s</div>
+    <div class="input-card-hint">%s</div>
+    <div class="input-card-cur">%s</div>
+    <div class="input-card-date">%s</div>
+    %s
+  </div>
+  <div class="input-card-right">
+    <label>新值（%s）</label>
+    <input type="text" inputmode="decimal" data-series="%s" placeholder="留空=不修改">
+  </div>
+</div>""" % (
+            html.escape(m["name"]),
+            html.escape(m["hint"]),
+            html.escape(cur_str),
+            html.escape(date_str),
+            ("<div class='input-card-history'>%s</div>" % html.escape(hist_str)) if hist_str else "",
+            html.escape(m["unit"]),
+            html.escape(m["sid"]),
+        ))
+
+    # 最近录入记录
     recent = []
     for r in conn.execute(
             "SELECT series_id, date, value, unit, note FROM series "
@@ -703,142 +906,143 @@ def render_input(conn, cfg, data):
             "<td class='hint'>%s</td></tr>"
             % (html.escape(r["series_id"]), html.escape(r["date"]),
                fmt(r["value"], 2), html.escape(r["unit"] or ""),
-               html.escape(r["note"] or "")))
+               html.escape(r["note"] or ""))
+        )
 
-    tpl = """<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>数据录入 · __TITLE__</title><style>__CSS__</style></head>
+    return """{head}
 <body><div class="wrap">
 <header>
   <h1>数据录入</h1>
-  <div class="meta">__TODAY__</div>
-  <nav><a href="index.html">← 返回看板</a></nav>
+  <div class="meta">{today}</div>
+  {nav}
 </header>
 
 <div class="card" id="gate">
   <div class="note" style="margin:0 0 12px">录入数据需要管理码验证（访问码只用来查看）</div>
-  <form class="formbar" id="gform">
-    <label>管理码 <input type="password" id="acode" autocomplete="off" autofocus></label>
+  <form class="gate-form" id="gform" style="max-width:400px">
+    <input type="password" id="acode" autocomplete="off" autofocus placeholder="管理码">
     <button id="gbtn" type="submit">验证</button>
   </form>
-  <div id="gmsg"></div>
+  <div id="gmsg" class="gate-msg"></div>
 </div>
 
 <div id="area" style="display:none">
-<div class="card">
-  <div class="note" style="margin:0 0 12px">只更新填了值的项，留空的不动；保存后看板会自动重新生成。</div>
-  <div class="tablewrap"><table>
-    <thead><tr><th style="width:34%">指标</th><th style="width:30%">当前值</th>
-    <th>新值</th></tr></thead>
-    <tbody>__ROWS__</tbody></table></div>
+<div class="note" style="margin:0 0 14px">只更新填了值的项，留空的不动；保存后看板会自动重新生成。</div>
+
+<div class="input-cards">{cards}</div>
+
+<div class="card" style="margin-top:14px">
   <div class="formbar">
-    <label>日期 <input type="date" id="f-date" value="__TODAY__"></label>
-    <label>备注 <input type="text" id="f-note" maxlength="100"
-      placeholder="如 Mysteel 46周"></label>
+    <label>日期 <input type="date" id="f-date" value="{today}" style="width:160px"></label>
+    <label>备注 <input type="text" id="f-note" maxlength="100" placeholder="如 Mysteel 46周" style="width:200px"></label>
     <button id="save-btn" type="button">保存</button>
   </div>
   <div id="form-msg"></div>
 </div>
 
 <h2>最近录入</h2>
-<div class="card"><div class="tablewrap"><table>
+<div class="card"><div class="tablewrap"><table class="recent-table">
   <thead><tr><th>指标</th><th>日期</th><th class="num">数值</th><th>备注</th></tr></thead>
-  <tbody>__RECENT__</tbody></table></div></div>
+  <tbody>{recent}</tbody>
+</table></div></div>
 </div>
 
-<footer>保存接口只能经 https://data.example.com/ 访问；
-直接双击本地文件打开时无法保存。</footer>
+<footer>保存接口只能经 nginx 代理后访问；直接双击本地文件打开时无法保存。</footer>
 </div>
 <script>
-(function () {
+(function () {{
   var gate = document.getElementById('gate');
   var area = document.getElementById('area');
   var gmsg = document.getElementById('gmsg');
   var gbtn = document.getElementById('gbtn');
-  function show() { gate.style.display = 'none'; area.style.display = ''; }
-  function failed(t) { gmsg.style.color = '#c0392b'; gmsg.textContent = t; gbtn.disabled = false; }
-  fetch('/auth/admin/status').then(function (r) { return r.json(); })
-    .then(function (j) { if (j.ok) show(); }).catch(function () {});
-  document.getElementById('gform').addEventListener('submit', function (e) {
+  function show() {{ gate.style.display = 'none'; area.style.display = ''; }}
+  function failed(t) {{ gmsg.style.color = '#9e4a37'; gmsg.textContent = t; gbtn.disabled = false; }}
+  fetch('/auth/admin/status').then(function (r) {{ return r.json(); }})
+    .then(function (j) {{ if (j.ok) show(); }}).catch(function () {{}});
+  document.getElementById('gform').addEventListener('submit', function (e) {{
     e.preventDefault();
     var code = document.getElementById('acode').value.trim();
-    if (!code) { failed('请输入管理码'); return; }
-    gbtn.disabled = true; gmsg.style.color = '#8a7f76'; gmsg.textContent = '验证中…';
-    fetch('/auth/admin/login', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({code: code})
-    }).then(function (r) { return r.json(); }).then(function (j) {
-      if (j.ok) { show(); return; }
+    if (!code) {{ failed('请输入管理码'); return; }}
+    gbtn.disabled = true; gmsg.style.color = '#767c70'; gmsg.textContent = '验证中…';
+    fetch('/auth/admin/login', {{
+      method: 'POST', headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{code: code}})
+    }}).then(function (r) {{ return r.json(); }}).then(function (j) {{
+      if (j.ok) {{ show(); return; }}
       failed(j.error || '管理码不正确');
-    }).catch(function () { failed('网络错误'); });
-  });
-})();
+    }}).catch(function () {{ failed('网络错误'); }});
+  }});
+}})();
 </script>
-__FORM_JS__</body></html>"""
-    return (tpl.replace("__TITLE__", html.escape(cfg["site_title"]))
-               .replace("__TODAY__", today)
-               .replace("__CSS__", CSS)
-               .replace("__ROWS__", "".join(rows))
-               .replace("__RECENT__", "".join(recent) or
-                        "<tr><td colspan='4'>暂无记录</td></tr>")
-               .replace("__FORM_JS__", FORM_JS))
+{form_js}
+{common_js}
+</body></html>
+""".format(
+        head=_page_head("数据录入 · " + cfg["site_title"]),
+        nav=_nav("input.html"),
+        today=today,
+        cards="".join(input_cards),
+        recent="".join(recent) or "<tr><td colspan='4'>暂无记录</td></tr>",
+        form_js=FORM_JS,
+        common_js=COMMON_JS,
+    )
 
 
+# ─── render_unlock ────────────────────────────────────────────────────────────
 
 def render_unlock(cfg):
-    tpl = """<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow">
-<title>需要访问码 · __TITLE__</title><style>__CSS__</style></head>
+    title = html.escape(cfg["site_title"])
+    return """{head}
 <body class="gate-body"><div class="gate-card">
-  <h1>__TITLE__</h1>
-  <div class="gate-sub">输入访问码解锁</div>
+  <div class="gate-brand">品评 · 豆粕数据平台</div>
+  <h1>{title}</h1>
+  <div class="gate-sub">输入访问码解锁查看</div>
   <form class="gate-form" id="f">
-    <input id="code" placeholder="访问码" autocomplete="off" autofocus>
+    <input id="code" placeholder="访问码（XXXX-XXXX-XXXX-XXXX）" autocomplete="off" autofocus>
     <button id="btn" type="submit">解锁</button>
   </form>
   <div class="gate-msg" id="msg"></div>
-  <div class="gate-foot"><span>HTTP 401 · 需要访问码</span><span>__TITLE__</span></div>
+  <div class="gate-foot"><span>HTTP 401 · 需要访问码</span><span>{title}</span></div>
 </div>
 <script>
-(function () {
+(function () {{
   var f = document.getElementById('f');
   var btn = document.getElementById('btn');
   var msg = document.getElementById('msg');
-  f.addEventListener('submit', function (e) {
+  f.addEventListener('submit', function (e) {{
     e.preventDefault();
     var code = document.getElementById('code').value.trim();
-    if (!code) { msg.style.color = '#c0392b'; msg.textContent = '请输入访问码'; return; }
-    btn.disabled = true; msg.style.color = '#8a7f76'; msg.textContent = '验证中…';
-    fetch('/auth/login', {
+    if (!code) {{ msg.style.color = '#9e4a37'; msg.textContent = '请输入访问码'; return; }}
+    btn.disabled = true; msg.style.color = '#767c70'; msg.textContent = '验证中…';
+    fetch('/auth/login', {{
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({code: code})
-    }).then(function (r) { return r.json(); }).then(function (j) {
-      if (j.ok) { location.reload(); return; }
-      msg.style.color = '#c0392b';
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{code: code}})
+    }}).then(function (r) {{ return r.json(); }}).then(function (j) {{
+      if (j.ok) {{ location.reload(); return; }}
+      msg.style.color = '#9e4a37';
       msg.textContent = j.error || '访问码不正确';
       btn.disabled = false;
-    }).catch(function () {
-      msg.style.color = '#c0392b'; msg.textContent = '网络错误'; btn.disabled = false;
-    });
-  });
-})();
+    }}).catch(function () {{
+      msg.style.color = '#9e4a37'; msg.textContent = '网络错误'; btn.disabled = false;
+    }});
+  }});
+}})();
 </script>
-</body></html>"""
-    return (tpl.replace("__TITLE__", html.escape(cfg["site_title"]))
-               .replace("__CSS__", CSS))
+</body></html>
+""".format(
+        head=_page_head("需要访问码 · " + cfg["site_title"]),
+        title=title,
+    )
 
+
+# ─── render_admin ─────────────────────────────────────────────────────────────
 
 def render_admin(cfg):
-    tpl = """<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow">
-<title>管理 · __TITLE__</title><style>__CSS__</style></head>
+    title = html.escape(cfg["site_title"])
+    return """{head}
 <body class="gate-body"><div class="gate-card" style="max-width:520px">
+  <div class="gate-brand">品评 · 豆粕数据平台</div>
   <h1>管理</h1>
   <div class="gate-sub">输入管理码后，可以生成新访问码、开关门禁</div>
   <form class="gate-form" id="f">
@@ -859,10 +1063,10 @@ def render_admin(cfg):
     <div id="newcode"></div>
   </div>
 
-  <div class="gate-foot"><span>管理会话 __HOURS__ 小时</span><span>__TITLE__</span></div>
+  <div class="gate-foot"><span>管理会话 24 小时</span><span>{title}</span></div>
 </div>
 <script>
-(function () {
+(function () {{
   var msg = document.getElementById('msg');
   var btn = document.getElementById('btn');
   var panel = document.getElementById('panel');
@@ -871,104 +1075,149 @@ def render_admin(cfg):
   var newEl = document.getElementById('newcode');
   var gateOn = false;
 
-  function say(t, ok) {
-    msg.style.color = ok ? '#0a7d32' : '#c0392b';
-    msg.textContent = t;
-  }
-  function post(url, body) {
-    return fetch(url, {
+  function say(t, ok) {{ msg.style.color = ok ? '#3f6e51' : '#9e4a37'; msg.textContent = t; }}
+  function post(url, body) {{
+    return fetch(url, {{
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body || {})
-    }).then(function (r) { return r.json(); });
-  }
-  function loadStatus() {
-    return fetch('/auth/admin/status').then(function (r) { return r.json(); })
-      .then(function (j) {
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify(body || {{}})
+    }}).then(function (r) {{ return r.json(); }});
+  }}
+  function loadStatus() {{
+    return fetch('/auth/admin/status').then(function (r) {{ return r.json(); }})
+      .then(function (j) {{
         if (!j.ok) return false;
         gateOn = !!j.gate_enabled;
         stateEl.textContent = gateOn ? '开启' : '关闭';
         hintEl.textContent = j.access_set ? (j.access_hint + '****') : '未设置';
         panel.style.display = '';
         return true;
-      });
-  }
+      }});
+  }}
 
-  document.getElementById('f').addEventListener('submit', function (e) {
+  document.getElementById('f').addEventListener('submit', function (e) {{
     e.preventDefault();
     var code = document.getElementById('acode').value.trim();
-    if (!code) { say('请输入管理码', false); return; }
+    if (!code) {{ say('请输入管理码', false); return; }}
     btn.disabled = true;
-    post('/auth/admin/login', {code: code}).then(function (j) {
+    post('/auth/admin/login', {{code: code}}).then(function (j) {{
       btn.disabled = false;
-      if (!j.ok) { say(j.error || '管理码不正确', false); return; }
+      if (!j.ok) {{ say(j.error || '管理码不正确', false); return; }}
       say('已验证', true);
-      loadStatus().then(function (ok) { if (!ok) say('状态读取失败', false); });
-    }).catch(function () { btn.disabled = false; say('网络错误', false); });
-  });
+      loadStatus().then(function (ok) {{ if (!ok) say('状态读取失败', false); }});
+    }}).catch(function () {{ btn.disabled = false; say('网络错误', false); }});
+  }});
 
-  document.getElementById('toggle').addEventListener('click', function () {
-    post('/auth/admin/toggle', {enabled: !gateOn}).then(function (j) {
-      if (!j.ok) { say(j.error || '操作失败', false); return; }
+  document.getElementById('toggle').addEventListener('click', function () {{
+    post('/auth/admin/toggle', {{enabled: !gateOn}}).then(function (j) {{
+      if (!j.ok) {{ say(j.error || '操作失败', false); return; }}
       say('门禁已' + (j.gate_enabled ? '开启' : '关闭'), true);
       loadStatus();
-    });
-  });
+    }});
+  }});
 
-  document.getElementById('gen').addEventListener('click', function () {
+  document.getElementById('gen').addEventListener('click', function () {{
     if (!confirm('生成新访问码会让所有已解锁的浏览器失效，继续？')) return;
-    post('/auth/admin/gen', {}).then(function (j) {
-      if (!j.ok) { say(j.error || '操作失败', false); return; }
+    post('/auth/admin/gen', {{}}).then(function (j) {{
+      if (!j.ok) {{ say(j.error || '操作失败', false); return; }}
       say('新访问码已生成，旧会话全部失效', true);
-      newEl.innerHTML = '<div class="code-box">' + j.code + '</div>' +
-        '<div class="hint" style="margin-top:8px">只显示这一次，请立即保存</div>';
+      var code = j.code;
+      newEl.innerHTML = '<div class="code-box" id="codebox">' + code + '</div>'
+        + '<button class="copy-btn" id="copybtn">复制</button>'
+        + '<div class="hint" style="margin-top:8px">只显示这一次，请立即保存</div>';
+      document.getElementById('copybtn').addEventListener('click', function () {{
+        navigator.clipboard.writeText(code).then(function () {{
+          document.getElementById('copybtn').textContent = '已复制 ✓';
+        }});
+      }});
       loadStatus();
-    });
-  });
+    }});
+  }});
 
   loadStatus();
-})();
+}})();
 </script>
-</body></html>"""
-    return (tpl.replace("__TITLE__", html.escape(cfg["site_title"]))
-               .replace("__CSS__", CSS)
-               .replace("__HOURS__", "24"))
+</body></html>
+""".format(
+        head=_page_head("管理 · " + cfg["site_title"]),
+        title=title,
+    )
 
+
+# ─── render_weekly ────────────────────────────────────────────────────────────
 
 def render_weekly(conn, cfg, data):
     series_list = [
-        ("A4.spot", "豆粕现货价（元/吨）"),
-        ("A5.basis.main", "基差（元/吨）"),
-        ("A5.basis.100ppi", "生意社近月基差（元/吨）"),
-        ("B1.inventory", "油厂豆粕库存（万吨）"),
+        ("A4.spot",          "豆粕现货价（元/吨）"),
+        ("A5.basis.main",    "基差（元/吨）"),
+        ("A5.basis.100ppi",  "生意社近月基差（元/吨）"),
+        ("B1.inventory",     "油厂豆粕库存（万吨）"),
         ("B2.soy_inventory", "油厂大豆库存（万吨）"),
-        ("B3.crush_rate", "油厂开机率（%）"),
-        ("C1.hog_profit", "生猪自繁自养利润（元/头）"),
+        ("B3.crush_rate",    "油厂开机率（%）"),
+        ("C1.hog_profit",    "生猪自繁自养利润（元/头）"),
         ("C2.hog_future.main", "生猪期货主力（元/吨）"),
-        ("B6.soy_cost", "进口大豆到港成本（元/吨）"),
-        ("B6.crush_margin", "盘面压榨利润（元/吨）"),
+        ("B6.soy_cost",      "进口大豆到港成本（元/吨）"),
+        ("B6.crush_margin",  "盘面压榨利润（元/吨）"),
     ]
+
     blocks = []
     for sid, title in series_list:
         rows = db.history(conn, sid, limit=16)
         if not rows:
-            body = "<tr><td colspan='2'>暂无数据</td></tr>"
+            body = "<tr><td colspan='3'>暂无数据</td></tr>"
+            spark = ""
         else:
-            body = "".join("<tr><td>%s</td><td class='num'>%s</td></tr>"
-                           % (r["date"], fmt(r["value"], 2)) for r in reversed(rows))
-        blocks.append("""<h2>%s</h2><div class="card"><table>
-<thead><tr><th>日期</th><th class="num">数值</th></tr></thead><tbody>%s</tbody></table></div>
-""" % (html.escape(title), body))
+            vals = [r["value"] for r in rows]
+            spark = '<div class="sparkline-wrap">%s</div>' % sparkline_svg(vals)
+            # 表格：日期 / 数值 / 环比
+            body_rows = []
+            for i, r in enumerate(reversed(rows)):
+                prev_r = rows[-(i + 2)] if i + 1 < len(rows) else None
+                if prev_r is not None:
+                    chg = r["value"] - prev_r["value"]
+                    chg_cls = cls_of(chg)
+                    chg_str = "%+.2f %s" % (chg, arrow(chg))
+                else:
+                    chg_cls = "flat"
+                    chg_str = "—"
+                body_rows.append(
+                    "<tr><td>%s</td><td class='num'>%s</td>"
+                    "<td class='num chg %s'>%s</td></tr>"
+                    % (r["date"], fmt(r["value"], 2), chg_cls, chg_str)
+                )
+            body = "".join(body_rows)
 
-    return """<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>周度数据</title><style>%s</style></head><body><div class="wrap">
-<header><h1>周度数据</h1><div class="meta">最近 16 条记录 · 生成于 %s</div>
-<nav><a href="index.html">← 返回看板</a><a href="input.html">录入数据</a></nav></header>
-%s
-</div></body></html>
-""" % (CSS, datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "".join(blocks))
+        blocks.append("""
+<section class="series-block">
+<h2>%s%s</h2>
+<div class="card"><table>
+<thead><tr><th>日期</th><th class="num">数值</th><th class="num">环比</th></tr></thead>
+<tbody>%s</tbody>
+</table></div>
+</section>""" % (html.escape(title), spark, body))
 
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    return """{head}
+<body><div class="wrap">
+<header>
+  <h1>周度数据</h1>
+  <div class="meta">最近 16 条记录 · 生成于 {now}</div>
+  {nav}
+</header>
+<main class="series-grid">{blocks}</main>
+</div>
+{js}
+</body></html>
+""".format(
+        head=_page_head("周度数据 · " + cfg["site_title"]),
+        nav=_nav("weekly.html"),
+        now=now_str,
+        blocks="".join(blocks),
+        js=COMMON_JS,
+    )
+
+
+# ─── main ─────────────────────────────────────────────────────────────────────
 
 def main():
     cfg = load_config()
@@ -977,6 +1226,14 @@ def main():
     data = build(conn, cfg)
     os.makedirs(SITE, exist_ok=True)
     os.makedirs(os.path.join(SITE, "data"), exist_ok=True)
+
+    # 样式表：源码在 app/style.css，每次渲染复制到站点目录
+    css_src = os.path.join(APP, "style.css")
+    if os.path.exists(css_src):
+        with open(css_src, "rb") as fh:
+            css_bytes = fh.read()
+        with open(os.path.join(SITE, CSS_HREF), "wb") as fh:
+            fh.write(css_bytes)
 
     with open(os.path.join(SITE, "index.html"), "w", encoding="utf-8") as fh:
         fh.write(render_index(cfg, data))

@@ -144,12 +144,14 @@ def _news_list(items, limit=200):
     return "<ul class='newslist'>%s</ul>" % "".join(out)
 
 
-def _page_head(title, nav_items):
+def _page_head(title, nav_items, prefix=""):
+    """prefix：简报页在 brief/ 子目录下，需要 ../ 才能引到根目录的 style.css。"""
     nav = "".join("<a href='%s'>%s</a>" % (u, t) for t, u in nav_items)
     return ("<!doctype html>\n<html lang=\"zh-CN\"><head><meta charset=\"utf-8\">\n"
             "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
-            "<title>%s</title><style>%s</style></head>\n<body><div class=\"wrap\">\n"
-            "<header><h1>%s</h1>" % (title, render.CSS, title))
+            "<title>%s</title><link rel=\"stylesheet\" href=\"%sstyle.css\"></head>\n"
+            "<body><div class=\"wrap\">\n"
+            "<header><h1>%s</h1>" % (title, prefix, title))
 
 
 def render_brief(date_text, data, items_high, items_norm, summary, ai_ok):
@@ -157,9 +159,11 @@ def render_brief(date_text, data, items_high, items_norm, summary, ai_ok):
     now = datetime.datetime.now().strftime("%H:%M")
 
     if summary:
-        lead = "<div class='lead-card'>%s<div class='note'>AI 生成，仅供参考</div></div>" % html.escape(summary)
+        lead = ("<div class='lead-card brief-lead'><div><div class='eyebrow'>DAILY BRIEF · 豆粕研究</div>"
+                "<div>%s</div><div class='note'>AI 生成，仅供参考</div></div></div>" % html.escape(summary))
     else:
-        lead = ("<div class='lead-card'>%s<div class='note'>AI 摘要未生成（%s）</div></div>"
+        lead = ("<div class='lead-card brief-lead'><div><div class='eyebrow'>DAILY BRIEF · 豆粕研究</div>"
+                "<div>%s</div><div class='note'>AI 摘要未生成（%s）</div></div></div>"
                 % (html.escape(data["lead"]), "未配置模型" if not ai_ok else "接口不可用"))
 
     q = next((x for x in data["quotes"] if x.get("is_main")), None)
@@ -187,7 +191,7 @@ def render_brief(date_text, data, items_high, items_norm, summary, ai_ok):
         for c in data.get("calendar", []))
 
     return """{head}<div class="meta">{date} 周{weekday} · {now} 生成</div>
-<nav><a href="../index.html">看板</a><a href="../brief.html">全部简报</a><a href="../macro.html">全局简报</a></nav></header>
+<nav aria-label="主导航"><a href="../index.html">盘前看板</a><a href="../brief.html">豆粕简报</a><a href="../macro.html">全局简报</a><a href="../weekly.html">周度数据</a></nav></header>
 
 {lead}
 
@@ -208,7 +212,7 @@ def render_brief(date_text, data, items_high, items_norm, summary, ai_ok):
 
 <footer>覆盖过去 24 小时 · 数据来源：金十数据 / 新浪财经 / 生意社 · 本页仅供参考</footer>
 </div></body></html>
-""".format(head=_page_head("豆粕简报 · %s" % date_text, []),
+""".format(head=_page_head("豆粕简报 · %s" % date_text, [], "../"),
            date=date_text, weekday=weekday, now=now,
            lead=lead, nums=html.escape(" · ".join(nums) or "暂无行情"),
            dim_html=dim_html, n_high=len(items_high), n_norm=len(items_norm),
@@ -223,10 +227,11 @@ def render_macro(date_text, by_sector, summary, fx):
     now = datetime.datetime.now().strftime("%H:%M")
 
     if summary:
-        lead = "<div class='lead-card'>%s<div class='note'>AI 生成，仅供参考</div></div>" % html.escape(summary)
+        lead = ("<div class='lead-card brief-lead'><div><div class='eyebrow'>MARKET BRIEF · 全球市场</div>"
+                "<div>%s</div><div class='note'>AI 生成，仅供参考</div></div></div>" % html.escape(summary))
     else:
-        lead = ("<div class='lead-card'>全球市场要闻汇总<div class='note'>"
-                "AI 摘要未生成</div></div>")
+        lead = ("<div class='lead-card brief-lead'><div><div class='eyebrow'>MARKET BRIEF · 全球市场</div>"
+                "<div>全球市场要闻汇总</div><div class='note'>AI 摘要未生成</div></div></div>")
 
     fx_text = ""
     if fx and fx.get("value") is not None:
@@ -245,7 +250,7 @@ def render_macro(date_text, by_sector, summary, fx):
         blocks.append("<div class='card'><div class='hint'>过去 24 小时无可归类要闻</div></div>")
 
     return """{head}<div class="meta">{date} 周{weekday} · {now} 生成</div>
-<nav><a href="../index.html">看板</a><a href="../macro.html">全部简报</a><a href="../brief.html">豆粕简报</a></nav></header>
+<nav aria-label="主导航"><a href="../index.html">盘前看板</a><a href="../brief.html">豆粕简报</a><a href="../macro.html">全局简报</a><a href="../weekly.html">周度数据</a></nav></header>
 
 {lead}
 
@@ -256,7 +261,7 @@ def render_macro(date_text, by_sector, summary, fx):
 
 <footer>覆盖过去 24 小时 · 数据来源：金十数据 / 新浪财经 · 本页仅供参考</footer>
 </div></body></html>
-""".format(head=_page_head("全局简报 · %s" % date_text, []),
+""".format(head=_page_head("全局简报 · %s" % date_text, [], "../"),
            date=date_text, weekday=weekday, now=now, lead=lead,
            fx_text=html.escape(fx_text or "暂无数据"), blocks="".join(blocks))
 
@@ -293,7 +298,7 @@ def render_index_page(title, entries, kind):
             % (kind, d, d, wd, e.get("total", 0), html.escape(e.get("summary") or "")))
     body = "".join(rows) or "<tr><td colspan='4'>暂无简报</td></tr>"
     return """{head}<div class="meta">共 {n} 期，按日期倒序</div>
-<nav><a href="index.html">看板</a><a href="{other}.html">{other_name}</a></nav></header>
+<nav aria-label="主导航"><a href="index.html">盘前看板</a><a href="brief.html">豆粕简报</a><a href="macro.html">全局简报</a><a href="weekly.html">周度数据</a></nav></header>
 <div class="card"><div class="tablewrap"><table>
 <thead><tr><th>日期</th><th>星期</th><th class="num">条数</th><th>导语</th></tr></thead>
 <tbody>{body}</tbody></table></div></div>
