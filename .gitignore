@@ -3,6 +3,7 @@
 **/notify.json
 **/jin10.json
 **/llm.json
+**/auth.json
 **/secrets.yaml
 .env
 

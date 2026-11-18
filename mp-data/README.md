@@ -48,6 +48,45 @@ python -m http.server 8000 --directory site
 # 浏览器打开 http://127.0.0.1:8000/
 ```
 
+## 访问门禁
+
+站点由 nginx `auth_request` + 后端签名 cookie 控制：
+
+```
+浏览器 → nginx → auth_request /auth/check → 命中则放行，否则回到 unlock.html
+```
+
+- 状态文件：`/etc/mp-data/auth.json`（600，属主 mpdata）
+- **只存哈希**：`access_sha256` / `admin_sha256`，看不到明文；`access_hint` 只存前 4 位
+- cookie：HMAC 签名 + 过期时间，`HttpOnly; Secure; SameSite=Lax`
+- scope 隔离：`auth` 的 cookie 无法冒充 `admin`
+
+### 命令行
+
+```bash
+sudo -u mpdata python3 app/auth.py status     # 门禁状态、访问码指纹
+sudo -u mpdata python3 app/auth.py gen        # 生成新访问码并开启门禁
+sudo -u mpdata python3 app/auth.py set <码>    # 指定访问码
+sudo -u mpdata python3 app/auth.py admin <码>  # 设置管理码
+sudo -u mpdata python3 app/auth.py on|off     # 开关门禁
+sudo -u mpdata python3 app/auth.py secret     # 轮换密钥，踢掉所有会话
+```
+
+### 页面
+
+- `unlock.html`：未解锁时展示，输入访问码
+- `admin.html`：解锁后进入，输入管理码可生成新访问码 / 开关门禁
+
+### 关闭门禁
+
+门禁关闭后不再校验，但保留 basic auth 之外的这层逻辑，随时可再打开：
+
+```bash
+sudo -u mpdata python3 app/auth.py off
+```
+
+> 注意：`gate_enabled` 是动态的，改完立即生效，不需要 reload nginx。
+
 ## 部署到服务器
 
 ```bash

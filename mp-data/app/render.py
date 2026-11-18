@@ -87,6 +87,28 @@ input[data-series] { width:100%; }
         border-radius:6px; font-size:13px; cursor:pointer; font-family:inherit; }
 #save-btn:disabled { opacity:.6; cursor:default; }
 #form-msg { margin-top:10px; font-size:13px; min-height:18px; }
+.gate-body { display:flex; align-items:center; justify-content:center; min-height:100vh;
+        margin:0; padding:20px; background:#fbf7f2; }
+.gate-card { width:100%; max-width:420px; background:#fff; border:1px solid #f0e6dc;
+        border-radius:16px; padding:30px 28px; box-shadow:0 10px 34px rgba(120,90,60,.06); }
+.gate-card h1 { font-size:21px; margin:0 0 6px; }
+.gate-sub { color:#8a7f76; font-size:13px; margin:0 0 20px; line-height:1.6; }
+.gate-form { display:flex; gap:8px; }
+.gate-form input { flex:1; padding:10px 12px; border:1px solid #e6dcd2; border-radius:8px;
+        font-size:14px; font-family:inherit; color:#1f2328; background:#fff; }
+.gate-form button { background:#e8622a; color:#fff; border:0; border-radius:8px;
+        padding:10px 18px; font-size:14px; cursor:pointer; font-family:inherit; white-space:nowrap; }
+.gate-form button:disabled { opacity:.6; cursor:default; }
+.gate-msg { margin-top:12px; font-size:13px; min-height:18px; }
+.gate-foot { margin-top:20px; padding-top:12px; border-top:1px solid #f0e6dc;
+        color:#b0a69c; font-size:12px; display:flex; justify-content:space-between; }
+.gate-row { display:flex; gap:10px; margin:10px 0; flex-wrap:wrap; }
+.gate-row button { background:#f6f1ec; color:#8a5a3a; border:1px solid #eadfd4;
+        border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; font-family:inherit; }
+.gate-row button:hover { background:#f0e8e0; }
+.code-box { margin-top:14px; padding:14px; background:#fff8f2; border:1px dashed #e8622a;
+        border-radius:10px; font-size:16px; letter-spacing:1px; text-align:center;
+        font-family:ui-monospace,Consolas,monospace; }
 """
 
 FORM_JS = """
@@ -576,7 +598,7 @@ def render_index(cfg, data):
 <header>
   <h1>{title}</h1>
   <div class="meta">{today} · 主力 {main} · {now} 更新</div>
-  <nav><a href="brief.html">豆粕简报</a><a href="macro.html">全局简报</a><a href="input.html">录入数据</a><a href="weekly.html">周度数据</a></nav>
+  <nav><a href="brief.html">豆粕简报</a><a href="macro.html">全局简报</a><a href="input.html">录入数据</a><a href="weekly.html">周度数据</a><a href="admin.html">管理</a></nav>
 </header>
 
 <div class="lead-card">{lead}<div class="note">本句由规则根据下方数据生成，不是投资建议。</div></div>
@@ -723,6 +745,154 @@ def render_input(conn, cfg, data):
 
 
 
+def render_unlock(cfg):
+    tpl = """<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>需要访问码 · __TITLE__</title><style>__CSS__</style></head>
+<body class="gate-body"><div class="gate-card">
+  <h1>__TITLE__</h1>
+  <div class="gate-sub">输入访问码解锁</div>
+  <form class="gate-form" id="f">
+    <input id="code" placeholder="访问码" autocomplete="off" autofocus>
+    <button id="btn" type="submit">解锁</button>
+  </form>
+  <div class="gate-msg" id="msg"></div>
+  <div class="gate-foot"><span>HTTP 401 · 需要访问码</span><span>__TITLE__</span></div>
+</div>
+<script>
+(function () {
+  var f = document.getElementById('f');
+  var btn = document.getElementById('btn');
+  var msg = document.getElementById('msg');
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var code = document.getElementById('code').value.trim();
+    if (!code) { msg.style.color = '#c0392b'; msg.textContent = '请输入访问码'; return; }
+    btn.disabled = true; msg.style.color = '#8a7f76'; msg.textContent = '验证中…';
+    fetch('/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({code: code})
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.ok) { location.reload(); return; }
+      msg.style.color = '#c0392b';
+      msg.textContent = j.error || '访问码不正确';
+      btn.disabled = false;
+    }).catch(function () {
+      msg.style.color = '#c0392b'; msg.textContent = '网络错误'; btn.disabled = false;
+    });
+  });
+})();
+</script>
+</body></html>"""
+    return (tpl.replace("__TITLE__", html.escape(cfg["site_title"]))
+               .replace("__CSS__", CSS))
+
+
+def render_admin(cfg):
+    tpl = """<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>管理 · __TITLE__</title><style>__CSS__</style></head>
+<body class="gate-body"><div class="gate-card" style="max-width:520px">
+  <h1>管理</h1>
+  <div class="gate-sub">输入管理码后，可以生成新访问码、开关门禁</div>
+  <form class="gate-form" id="f">
+    <input id="acode" placeholder="管理码" autocomplete="off" autofocus>
+    <button id="btn" type="submit">验证</button>
+  </form>
+  <div class="gate-msg" id="msg"></div>
+
+  <div id="panel" style="display:none">
+    <div class="gate-row"><span>门禁状态：<b id="state">—</b></span></div>
+    <div class="gate-row"><span>访问码指纹：<b id="hint">—</b></span></div>
+    <div class="gate-row">
+      <button type="button" id="toggle">切换门禁</button>
+      <button type="button" id="gen">生成新访问码</button>
+      <a href="index.html"><button type="button">返回看板</button></a>
+    </div>
+    <div id="newcode"></div>
+  </div>
+
+  <div class="gate-foot"><span>管理会话 __HOURS__ 小时</span><span>__TITLE__</span></div>
+</div>
+<script>
+(function () {
+  var msg = document.getElementById('msg');
+  var btn = document.getElementById('btn');
+  var panel = document.getElementById('panel');
+  var stateEl = document.getElementById('state');
+  var hintEl = document.getElementById('hint');
+  var newEl = document.getElementById('newcode');
+  var gateOn = false;
+
+  function say(t, ok) {
+    msg.style.color = ok ? '#0a7d32' : '#c0392b';
+    msg.textContent = t;
+  }
+  function post(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body || {})
+    }).then(function (r) { return r.json(); });
+  }
+  function loadStatus() {
+    return fetch('/auth/admin/status').then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.ok) return false;
+        gateOn = !!j.gate_enabled;
+        stateEl.textContent = gateOn ? '开启' : '关闭';
+        hintEl.textContent = j.access_set ? (j.access_hint + '****') : '未设置';
+        panel.style.display = '';
+        return true;
+      });
+  }
+
+  document.getElementById('f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var code = document.getElementById('acode').value.trim();
+    if (!code) { say('请输入管理码', false); return; }
+    btn.disabled = true;
+    post('/auth/admin/login', {code: code}).then(function (j) {
+      btn.disabled = false;
+      if (!j.ok) { say(j.error || '管理码不正确', false); return; }
+      say('已验证', true);
+      loadStatus().then(function (ok) { if (!ok) say('状态读取失败', false); });
+    }).catch(function () { btn.disabled = false; say('网络错误', false); });
+  });
+
+  document.getElementById('toggle').addEventListener('click', function () {
+    post('/auth/admin/toggle', {enabled: !gateOn}).then(function (j) {
+      if (!j.ok) { say(j.error || '操作失败', false); return; }
+      say('门禁已' + (j.gate_enabled ? '开启' : '关闭'), true);
+      loadStatus();
+    });
+  });
+
+  document.getElementById('gen').addEventListener('click', function () {
+    if (!confirm('生成新访问码会让所有已解锁的浏览器失效，继续？')) return;
+    post('/auth/admin/gen', {}).then(function (j) {
+      if (!j.ok) { say(j.error || '操作失败', false); return; }
+      say('新访问码已生成，旧会话全部失效', true);
+      newEl.innerHTML = '<div class="code-box">' + j.code + '</div>' +
+        '<div class="hint" style="margin-top:8px">只显示这一次，请立即保存</div>';
+      loadStatus();
+    });
+  });
+
+  loadStatus();
+})();
+</script>
+</body></html>"""
+    return (tpl.replace("__TITLE__", html.escape(cfg["site_title"]))
+               .replace("__CSS__", CSS)
+               .replace("__HOURS__", "24"))
+
+
 def render_weekly(conn, cfg, data):
     series_list = [
         ("A4.spot", "豆粕现货价（元/吨）"),
@@ -770,6 +940,10 @@ def main():
         fh.write(render_index(cfg, data))
     with open(os.path.join(SITE, "input.html"), "w", encoding="utf-8") as fh:
         fh.write(render_input(conn, cfg, data))
+    with open(os.path.join(SITE, "unlock.html"), "w", encoding="utf-8") as fh:
+        fh.write(render_unlock(cfg))
+    with open(os.path.join(SITE, "admin.html"), "w", encoding="utf-8") as fh:
+        fh.write(render_admin(cfg))
     with open(os.path.join(SITE, "weekly.html"), "w", encoding="utf-8") as fh:
         fh.write(render_weekly(conn, cfg, data))
     with open(os.path.join(SITE, "data", "summary.json"), "w", encoding="utf-8") as fh:

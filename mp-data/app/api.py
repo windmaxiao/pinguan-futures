@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""写入接口：只监听 127.0.0.1，由 nginx 反代并复用 basic auth 保护。
+"""写入接口 + 门禁鉴权：只监听 127.0.0.1，由 nginx 反代。
 
 安全措施：
 - 只绑回环地址，外网无法直连；
-- 强制 Content-Type: application/json（跨站请求会触发预检，而这里不返回 CORS 头 → 被浏览器拦下）；
+- 强制 Content-Type: application/json（跨站请求会触发预检，这里不返回 CORS 头 → 被浏览器拦下）；
 - 校验 Origin；
 - 指标名必须在 config 白名单里，数值必须落在 min/max 区间；
-- 请求体上限 4KB。
+- 门禁 cookie 用 HMAC 签名，访问码与管理码分属不同 scope，不能互相冒充。
 """
 import datetime
 import json
@@ -19,6 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import db      # noqa: E402
+import gate    # noqa: E402
 import render  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -74,22 +75,82 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         sys.stderr.write("[api] %s %s\n" % (self.address_string(), fmt % args))
 
-    def _send(self, code, obj):
+    # ---------------- 基础
+
+    def _send(self, code, obj, cookie=None):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        if cookie:
+            name, value, max_age = cookie
+            self.send_header("Set-Cookie",
+                             "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax; Secure"
+                             % (name, value, max_age))
         self.end_headers()
         self.wfile.write(body)
 
+    def _cookie(self, name):
+        raw = self.headers.get("Cookie", "")
+        for part in raw.split(";"):
+            key, _, val = part.strip().partition("=")
+            if key == name:
+                return val
+        return ""
+
+    def _origin_ok(self):
+        origin = self.headers.get("Origin", "")
+        return (not origin) or origin == ALLOWED_ORIGIN
+
+    def _json_body(self):
+        if "application/json" not in self.headers.get("Content-Type", ""):
+            raise ValueError("需要 application/json")
+        length = int(self.headers.get("Content-Length", "0"))
+        if length <= 0 or length > 4096:
+            raise ValueError("请求体为空或过大")
+        return json.loads(self.rfile.read(length).decode("utf-8"))
+
+    # ---------------- 门禁
+
+    def _is_authed(self):
+        data = gate.load()
+        if not data.get("gate_enabled"):
+            return True
+        return gate.auth_ok(self._cookie(gate.COOKIE_AUTH))
+
+    def _is_admin(self):
+        return gate.admin_ok(self._cookie(gate.COOKIE_ADMIN))
+
     def do_OPTIONS(self):
-        # 故意不返回 CORS 头：跨站 POST 会卡在预检
         self._send(405, {"ok": False, "error": "OPTIONS not allowed"})
 
     def do_GET(self):
+        if self.path == "/auth/check":
+            self._send(200 if self._is_authed() else 401,
+                       {"ok": self._is_authed()})
+            return
+        if self.path == "/auth/admin/status":
+            if not self._is_admin():
+                self._send(401, {"ok": False, "error": "需要管理码"})
+                return
+            data = gate.load()
+            self._send(200, {
+                "ok": True,
+                "gate_enabled": bool(data.get("gate_enabled")),
+                "access_set": bool(data.get("access_sha256")),
+                "access_hint": data.get("access_hint") or "",
+                "admin_set": bool(data.get("admin_sha256")),
+                "session_days": data.get("session_days"),
+                "admin_session_hours": data.get("admin_session_hours"),
+            })
+            return
         if self.path != "/api/latest":
             self._send(404, {"ok": False, "error": "not found"})
+            return
+        # 纵深防御：不只依赖 nginx 的 auth_request
+        if not self._is_authed():
+            self._send(401, {"ok": False, "error": "未解锁"})
             return
         cfg = load_config()
         conn = db.connect(DB_PATH)
@@ -106,24 +167,36 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, {"ok": True, "series": out})
 
     def do_POST(self):
-        if self.path != "/api/manual":
-            self._send(404, {"ok": False, "error": "not found"})
-            return
-
-        origin = self.headers.get("Origin", "")
-        if origin and origin != ALLOWED_ORIGIN:
+        path = self.path
+        if path.startswith("/auth/") and not self._origin_ok():
             self._send(403, {"ok": False, "error": "来源不合法"})
             return
 
-        if "application/json" not in self.headers.get("Content-Type", ""):
-            self._send(415, {"ok": False, "error": "需要 application/json"})
+        if path == "/auth/login":
+            self._login(admin=False)
+            return
+        if path == "/auth/admin/login":
+            self._login(admin=True)
+            return
+        if path == "/auth/admin/gen":
+            self._admin_gen()
+            return
+        if path == "/auth/admin/toggle":
+            self._admin_toggle()
             return
 
+        if path != "/api/manual":
+            self._send(404, {"ok": False, "error": "not found"})
+            return
+
+        if not self._is_authed():
+            self._send(401, {"ok": False, "error": "未解锁"})
+            return
+        if not self._origin_ok():
+            self._send(403, {"ok": False, "error": "来源不合法"})
+            return
         try:
-            length = int(self.headers.get("Content-Length", "0"))
-            if length <= 0 or length > 4096:
-                raise ValueError("请求体为空或过大")
-            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            payload = self._json_body()
         except Exception as e:  # noqa: BLE001
             self._send(400, {"ok": False, "error": "请求解析失败：%s" % e})
             return
@@ -151,6 +224,68 @@ class Handler(BaseHTTPRequestHandler):
 
         self._send(200, {"ok": True, "series": sid, "date": date,
                          "value": value, "name": meta["name"]})
+
+    # ---------------- 门禁内部
+
+    def _login(self, admin):
+        try:
+            payload = self._json_body()
+        except Exception as e:  # noqa: BLE001
+            self._send(400, {"ok": False, "error": "请求解析失败：%s" % e})
+            return
+        code = (payload.get("code") or "").strip()
+        if not code:
+            self._send(400, {"ok": False, "error": "请输入访问码"})
+            return
+
+        data = gate.load()
+        if admin:
+            if not gate.check_code(code, data.get("admin_sha256")):
+                self._send(401, {"ok": False, "error": "管理码不正确"})
+                return
+            max_age = int(data["admin_session_hours"]) * 3600
+            self._send(200, {"ok": True},
+                       cookie=(gate.COOKIE_ADMIN, gate.issue_admin_cookie(data), max_age))
+            return
+
+        if not data.get("access_sha256"):
+            self._send(503, {"ok": False, "error": "访问码尚未设置，请先在服务器上生成"})
+            return
+        if not gate.check_code(code, data.get("access_sha256")):
+            self._send(401, {"ok": False, "error": "访问码不正确"})
+            return
+        max_age = int(data["session_days"]) * 86400
+        self._send(200, {"ok": True},
+                   cookie=(gate.COOKIE_AUTH, gate.issue_auth_cookie(data), max_age))
+
+    def _admin_gen(self):
+        if not self._is_admin():
+            self._send(401, {"ok": False, "error": "需要管理码"})
+            return
+        code = gate.new_access_code()
+        data = gate.set_access_code(code)
+        data["gate_enabled"] = True
+        data["secret"] = os.urandom(32).hex()      # 旧会话全部失效
+        gate.save(data)
+        # 用新密钥重新发一个管理 cookie，免得把自己也踢下线
+        max_age = int(data["admin_session_hours"]) * 3600
+        self._send(200, {"ok": True, "code": code},
+                   cookie=(gate.COOKIE_ADMIN, gate.issue_admin_cookie(data), max_age))
+
+    def _admin_toggle(self):
+        if not self._is_admin():
+            self._send(401, {"ok": False, "error": "需要管理码"})
+            return
+        try:
+            payload = self._json_body()
+        except Exception as e:  # noqa: BLE001
+            self._send(400, {"ok": False, "error": "请求解析失败：%s" % e})
+            return
+        enabled = bool(payload.get("enabled"))
+        data = gate.load()
+        data["gate_enabled"] = enabled
+        gate.save(data)
+        self._send(200, {"ok": True, "gate_enabled": enabled})
 
 
 def main():
