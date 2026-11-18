@@ -994,7 +994,7 @@ def render_unlock(cfg):
     title = html.escape(cfg["site_title"])
     return """{head}
 <body class="gate-body"><div class="gate-card">
-  <div class="gate-brand">品评 · 豆粕数据平台</div>
+  <div class="gate-brand">品观 · 豆粕数据平台</div>
   <h1>{title}</h1>
   <div class="gate-sub">输入访问码解锁查看</div>
   <form class="gate-form" id="f">
@@ -1042,7 +1042,7 @@ def render_admin(cfg):
     title = html.escape(cfg["site_title"])
     return """{head}
 <body class="gate-body"><div class="gate-card" style="max-width:520px">
-  <div class="gate-brand">品评 · 豆粕数据平台</div>
+  <div class="gate-brand">品观 · 豆粕数据平台</div>
   <h1>管理</h1>
   <div class="gate-sub">输入管理码后，可以生成新访问码、开关门禁</div>
   <form class="gate-form" id="f">
