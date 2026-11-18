@@ -1,5 +1,5 @@
 {
-  "site_title": "豆粕数据看板",
+  "site_title": "品观 · 豆粕",
   "timezone": "Asia/Shanghai",
   "contracts": {
     "M":  {"months": [1, 3, 5, 7, 8, 9, 11, 12], "count": 5},
