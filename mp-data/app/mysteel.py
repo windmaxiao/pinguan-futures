@@ -15,6 +15,7 @@ import os
 import re
 import ssl
 import sys
+import time
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -109,10 +110,27 @@ def extract(text):
 
 
 def _guess_date(text, fallback):
-    """周度数据常写“截至2026年11月13日”，这才是数据日期，不是发文日期。"""
+    """周度数据要取数据截止日，不是发文日。
+
+    两种写法都要认：
+      “截至2026年11月13日”
+      “2026年第46周（11月7日至13日）”
+    """
     m = re.search(r"截至\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日", text)
     if m:
         return "%s-%02d-%02d" % (m.group(1), int(m.group(2)), int(m.group(3)))
+    m = re.search(r"第\s*\d+\s*周[（(][^）)]*?至\s*(?:(\d{1,2})\s*月\s*)?(\d{1,2})\s*日", text)
+    if m:
+        month = int(m.group(1)) if m.group(1) else int(fallback[5:7])
+        return "%s-%02d-%02d" % (fallback[:4], month, int(m.group(2)))
+    # 只写了“第46周”没给日期：周度数据截止到周五，发文日往前推到最近周五
+    if re.search(r"第\s*\d+\s*周", text):
+        try:
+            d = datetime.date.fromisoformat(fallback)
+        except ValueError:
+            return fallback
+        back = (d.weekday() - 4) % 7
+        return (d - datetime.timedelta(days=back)).isoformat()
     return fallback
 
 
@@ -146,27 +164,52 @@ def _init_table(conn):
     conn.commit()
 
 
-def collect(days=1):
+def collect(days=1, full=False):
+    """采集文章。
+
+    默认只抓 config 里 mysteel_sync 指定的目标文章——Mysteel 有频率防护，
+    一次抓几十篇会触发 451，日常运行保持每天 0~3 个文章请求即可。
+    full=True 时抓取窗口内所有非“其他”类文章（仅用于人工探查）。
+    """
     today = datetime.date.today()
     want = {(today - datetime.timedelta(days=i)).strftime("%y%m%d") for i in range(days)}
     conn = db.connect(DB_PATH)
     _init_table(conn)
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    cfg = _load_config()
+    targets = [r["title"] for r in (cfg.get("mysteel_sync") or {}).values()]
+    have = {row["url"] for row in
+            conn.execute("SELECT url FROM probe WHERE source=?", (SOURCE,)).fetchall()}
+
+    try:
+        listings = fetch_list()
+    except Exception as exc:  # noqa: BLE001
+        print("[mysteel] 列表页抓取失败：%s" % exc)
+        conn.close()
+        return
+
     total = kept = 0
-    for url, code, title in fetch_list():
+    for url, code, title in listings:
         total += 1
         if code[:6] not in want:
             continue
+        if url in have:
+            continue
+        if not full and not any(k in title for k in targets):
+            continue
         kind = classify(title)
-        if kind == "其他":
+        if kind == "其他" and not full:
             continue
         date = "20%s-%s-%s" % (code[:2], code[2:4], code[4:6])
         try:
             text = _text(_get(url))
             detail = extract(text)
         except Exception as exc:  # noqa: BLE001
-            print("[mysteel] 抓取失败 %s：%s" % (title[:30], exc))
+            print("[mysteel] 抓取失败 %s：%s" % (title[:30], str(exc)[:60]))
+            if "451" in str(exc):
+                print("[mysteel] 疑似触发频率防护，本次中止")
+                break
             continue
         if not detail:
             print("[mysteel] 无数字 %s" % title[:40])
@@ -180,6 +223,7 @@ def collect(days=1):
         kept += 1
         keys = "、".join(k for k in detail.keys() if not k.startswith("_"))
         print("[mysteel] %s | %s | %s" % (detail["_date"], kind, keys))
+        time.sleep(2)
     conn.commit()
 
     n = conn.execute("SELECT COUNT(*) FROM probe WHERE source=?", (SOURCE,)).fetchone()[0]
@@ -281,7 +325,7 @@ def main():
             days = int(args[args.index("--days") + 1])
         except (IndexError, ValueError):
             pass
-    collect(days)
+    collect(days, full="--full" in args)
 
 
 if __name__ == "__main__":
