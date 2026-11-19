@@ -108,6 +108,14 @@ def extract(text):
     return out
 
 
+def _guess_date(text, fallback):
+    """周度数据常写“截至2026年11月13日”，这才是数据日期，不是发文日期。"""
+    m = re.search(r"截至\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日", text)
+    if m:
+        return "%s-%02d-%02d" % (m.group(1), int(m.group(2)), int(m.group(3)))
+    return fallback
+
+
 def fetch_list():
     html = _get(LIST_URL)
     items = re.findall(
@@ -153,28 +161,96 @@ def collect(days=1):
         kind = classify(title)
         if kind == "其他":
             continue
+        date = "20%s-%s-%s" % (code[:2], code[2:4], code[4:6])
         try:
-            detail = extract(_text(_get(url)))
+            text = _text(_get(url))
+            detail = extract(text)
         except Exception as exc:  # noqa: BLE001
             print("[mysteel] 抓取失败 %s：%s" % (title[:30], exc))
             continue
         if not detail:
             print("[mysteel] 无数字 %s" % title[:40])
             continue
-        date = "20%s-%s-%s" % (code[:2], code[2:4], code[4:6])
+        detail["_date"] = _guess_date(text, date)
         conn.execute(
             "INSERT OR REPLACE INTO probe (date, source, kind, detail, title, url, ingest_time)"
             " VALUES (?,?,?,?,?,?,?)",
             (date, SOURCE, kind, json.dumps(detail, ensure_ascii=False),
              title[:80], url, now))
         kept += 1
-        keys = "、".join(detail.keys())
-        print("[mysteel] %s | %s | %s" % (date, kind, keys))
+        keys = "、".join(k for k in detail.keys() if not k.startswith("_"))
+        print("[mysteel] %s | %s | %s" % (detail["_date"], kind, keys))
     conn.commit()
 
     n = conn.execute("SELECT COUNT(*) FROM probe WHERE source=?", (SOURCE,)).fetchone()[0]
     conn.close()
     print("[mysteel] 列表 %d 篇，命中 %d 篇；probe 表累计 %d 条" % (total, kept, n))
+
+
+def _load_config():
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json"),
+              encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def sync():
+    """把 probe 里最新的可映射数据写入正式序列。
+
+    映射关系在 config.json 的 mysteel_sync 里，每条指定：
+    文章标题关键字 + 提取字段名 + 目标 series_id。
+    写入的行 quality=auto、source=mysteel，便于日后区分与回退。
+    """
+    cfg = _load_config()
+    mapping = cfg.get("mysteel_sync") or {}
+    if not mapping:
+        print("[mysteel] config.json 未配置 mysteel_sync，跳过同步")
+        return
+
+    conn = db.connect(DB_PATH)
+    _init_table(conn)
+    rows = conn.execute(
+        "SELECT date, kind, title, detail, url FROM probe WHERE source=? ORDER BY date DESC",
+        (SOURCE,)).fetchall()
+
+    written = 0
+    for series_id, rule in mapping.items():
+        meta = cfg["manual_series"].get(series_id)
+        if not meta:
+            print("[mysteel] 未知序列 %s，跳过" % series_id)
+            continue
+        hit = None
+        for row in rows:
+            if rule["title"] not in (row["title"] or ""):
+                continue
+            try:
+                detail = json.loads(row["detail"])
+            except (TypeError, ValueError):
+                continue
+            item = detail.get(rule["key"])
+            if not item:
+                continue
+            value = item["value"] if isinstance(item, dict) else item
+            date = detail.get("_date") or row["date"]
+            lo, hi = meta.get("min"), meta.get("max")
+            if lo is not None and value < lo:
+                continue
+            if hi is not None and value > hi:
+                continue
+            hit = (series_id, date, float(value), row["title"])
+            break
+
+        if not hit:
+            print("[mysteel] %-16s 暂无匹配文章" % series_id)
+            continue
+
+        sid, date, value, title = hit
+        db.upsert(conn, sid, date, value, unit=meta["unit"], freq=meta.get("freq", "D"),
+                  source=SOURCE, sample="", quality="auto", note=title[:60])
+        written += 1
+        print("[mysteel] %-16s ← %s  %s %s" % (sid, date, value, meta["unit"]))
+    conn.commit()
+    conn.close()
+    print("[mysteel] 已写入 %d 条正式序列" % written)
 
 
 def show(limit=20):
@@ -195,6 +271,9 @@ def main():
     args = sys.argv[1:]
     if "--show" in args:
         show()
+        return
+    if "--sync" in args:
+        sync()
         return
     days = 1
     if "--days" in args:
