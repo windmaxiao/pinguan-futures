@@ -255,10 +255,11 @@ def _page_head(title, active_page=""):
     )
 
 
-def _nav(active=""):
+def _nav(active="", prefix=""):
+    """站点主导航。prefix 供子目录页面使用（如 ../）。"""
     links = [
         ("index.html",  "盘前看板"),
-        ("brief.html",  "每日简报"),
+        ("brief.html",  "豆粕简报"),
         ("macro.html",  "全局简报"),
         ("weekly.html", "周度数据"),
         ("input.html",  "数据录入"),
@@ -266,7 +267,8 @@ def _nav(active=""):
         ("admin.html",  "管理"),
     ]
     items = "".join(
-        '<a href="%s"%s>%s</a>' % (
+        '<a href="%s%s"%s>%s</a>' % (
+            prefix,
             href,
             ' class="active"' if active == href else "",
             label,

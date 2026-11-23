@@ -224,7 +224,7 @@ def render_brief(date_text, data, items_high, items_norm, summary, ai_ok):
         for c in data.get("calendar", []))
 
     return """{head}<div class="meta">{date} 周{weekday} · {now} 生成</div>
-<nav aria-label="主导航"><a href="../index.html">盘前看板</a><a href="../brief.html">豆粕简报</a><a href="../macro.html">全局简报</a><a href="../weekly.html">周度数据</a></nav></header>
+{nav}</header>
 
 {lead}
 
@@ -246,6 +246,7 @@ def render_brief(date_text, data, items_high, items_norm, summary, ai_ok):
 <footer>覆盖过去 24 小时 · 数据来源：金十数据 / 新浪财经 / 生意社 · 本页仅供参考</footer>
 </div></body></html>
 """.format(head=_page_head("豆粕简报 · %s" % date_text, [], "../"),
+           nav=render._nav("brief.html", "../"),
            date=date_text, weekday=weekday, now=now,
            lead=lead, nums=html.escape(" · ".join(nums) or "暂无行情"),
            dim_html=dim_html, n_high=len(items_high), n_norm=len(items_norm),
@@ -283,7 +284,7 @@ def render_macro(date_text, by_sector, summary, fx):
         blocks.append("<div class='card'><div class='hint'>过去 24 小时无可归类要闻</div></div>")
 
     return """{head}<div class="meta">{date} 周{weekday} · {now} 生成</div>
-<nav aria-label="主导航"><a href="../index.html">盘前看板</a><a href="../brief.html">豆粕简报</a><a href="../macro.html">全局简报</a><a href="../weekly.html">周度数据</a></nav></header>
+{nav}</header>
 
 {lead}
 
@@ -295,6 +296,7 @@ def render_macro(date_text, by_sector, summary, fx):
 <footer>覆盖过去 24 小时 · 数据来源：金十数据 / 新浪财经 · 本页仅供参考</footer>
 </div></body></html>
 """.format(head=_page_head("全局简报 · %s" % date_text, [], "../"),
+           nav=render._nav("macro.html", "../"),
            date=date_text, weekday=weekday, now=now, lead=lead,
            fx_text=html.escape(fx_text or "暂无数据"), blocks="".join(blocks))
 
@@ -331,12 +333,13 @@ def render_index_page(title, entries, kind):
             % (kind, d, d, wd, e.get("total", 0), html.escape(e.get("summary") or "")))
     body = "".join(rows) or "<tr><td colspan='4'>暂无简报</td></tr>"
     return """{head}<div class="meta">共 {n} 期，按日期倒序</div>
-<nav aria-label="主导航"><a href="index.html">盘前看板</a><a href="brief.html">豆粕简报</a><a href="macro.html">全局简报</a><a href="weekly.html">周度数据</a></nav></header>
+{nav}</header>
 <div class="card"><div class="tablewrap"><table>
 <thead><tr><th>日期</th><th>星期</th><th class="num">条数</th><th>导语</th></tr></thead>
 <tbody>{body}</tbody></table></div></div>
 </div></body></html>
 """.format(head=_page_head(title, []), n=len(entries),
+           nav=render._nav(kind + ".html"),
            other="macro" if kind == "brief" else "brief",
            other_name="全局简报" if kind == "brief" else "豆粕简报",
            body=body)
