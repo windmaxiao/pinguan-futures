@@ -59,14 +59,34 @@ def build_summary(data, items):
         parts.append("主力 %s 结算 %s（%s）" % (q["code"], fmt(q["settle"], 1), fmt(q["delta"], 1)))
     if data["us"]["last"] is not None:
         parts.append("美豆 %s 美分/蒲" % fmt(data["us"]["last"], 0))
+    wasde = data.get("wasde") or {}
+    if wasde.get("value") is not None:
+        parts.append("美豆期末库存 %s 亿蒲" % fmt(wasde["value"], 2))
     if data["basis"]["value"] is not None:
-        parts.append("基差 %s" % fmt(data["basis"]["value"], 0))
+        s = "基差 %s" % fmt(data["basis"]["value"], 0)
+        if data["basis"].get("delta") is not None:
+            s += "（变化 %+.0f）" % data["basis"]["delta"]
+        parts.append(s)
     if data["crush_margin"]["value"] is not None:
         parts.append("盘面压榨利润 %s 元/吨" % fmt(data["crush_margin"]["value"], 0))
-    if data["inventory"]["value"] is not None:
-        parts.append("油厂豆粕库存 %s 万吨" % fmt(data["inventory"]["value"], 1))
+    inv = data["inventory"]
+    if inv["value"] is not None:
+        s = "油厂豆粕库存 %s 万吨" % fmt(inv["value"], 1)
+        if inv.get("delta") is not None:
+            s += "（变化 %+.2f）" % inv["delta"]
+        if inv.get("pct") is not None:
+            s += "，历史 %d%% 分位" % inv["pct"]
+        parts.append(s)
     if data["hog_profit"]["value"] is not None:
         parts.append("生猪自繁自养 %s 元/头" % fmt(data["hog_profit"]["value"], 0))
+    if data.get("spreads"):
+        sp = []
+        for x in data["spreads"]:
+            t = "%s %s" % (x["name"], fmt(x["value"], 0))
+            if x.get("pct") is not None:
+                t += "（%d%% 分位）" % x["pct"]
+            sp.append(t)
+        parts.append("价差 " + "、".join(sp))
     lines.append("关键数据：" + "；".join(parts))
 
     lines.append("过去 24 小时资讯：")
@@ -84,15 +104,18 @@ def build_macro_input(fx, by_sector):
         if fx.get("delta") is not None:
             s += "（较前值 %+.4f）" % fx["delta"]
         lines.append(s)
+    empty = [s for s in SECTOR_ORDER if not by_sector.get(s)]
+    if empty:
+        lines.append("今日无要闻的板块：" + "、".join(empty))
     lines.append("过去 24 小时各板块要闻：")
     for sector in SECTOR_ORDER:
         items = by_sector.get(sector) or []
         if not items:
             continue
-        lines.append("【%s】" % sector)
-        for it in items[:3]:
+        lines.append("【%s】共 %d 条" % (sector, len(items)))
+        for it in items[:4]:
             lines.append("- [%s] %s" % ((it.get("pub_time") or "")[5:16],
-                                        _clean(it.get("content"), 100)))
+                                        _clean(it.get("content"), 130)))
     return "\n".join(lines)
 
 
@@ -102,11 +125,14 @@ def ai_summary(data, items):
     try:
         return llm.chat([
             {"role": "system", "content":
-             "你是豆粕期货研究员。根据用户给的数据写一段盘前导语。"
-             "要求：3 到 5 句话，总长不超过 150 字，简体中文，"
-             "只陈述事实和因果逻辑，不给出买卖建议，不编造数据中不存在的信息。"},
+             "你是一名豆粕交易员，给同事写一条盘前判断。直接说，不客套，总长 220 字以内：\n"
+             "1. 先给结论：短期（1-2 周）偏多 / 偏空 / 震荡\n"
+             "2. 给两条支撑依据，必须来自用户提供的数据\n"
+             "3. 给一个反证条件：出现什么情况这个判断就错了\n"
+             "只依据给的数据，不编造数字，不写免责声明，"
+             "不要使用 Markdown 标记（**、# 等），直接写纯文本。"},
             {"role": "user", "content": build_summary(data, items)},
-        ], max_tokens=400, temperature=0.3)
+        ], max_tokens=500, temperature=0.3)
     except Exception as e:  # noqa: BLE001
         print("[brief] 豆粕导语失败：%s" % e)
         return ""
@@ -119,10 +145,17 @@ def ai_macro(fx, by_sector):
     try:
         return llm.chat([
             {"role": "system", "content":
-             "你是期货市场观察员。用 2 到 4 句话概括过去 24 小时国内外市场的关键变化，"
-             "总长不超过 100 字，简体中文，只陈述事实，不编造，不给出交易建议。"},
+             "你是一名商品市场研究员，给交易者写每日全品类速览。"
+             "从用户给的要闻里整理成四部分，总长 450 到 650 字，分段落书写：\n"
+             "【全景】用一两句说今天市场整体在交易什么主线\n"
+             "【各板块】每个板块单独一行，以“·板块名：”开头写一句；"
+             "无明显变化的直接写“无重要变化”\n"
+             "【重大事件】列出 1 到 3 条影响面最大的事件，说明它影响哪些品种、大致持续多久\n"
+             "【机会线索】写 1 到 2 条值得跟踪的方向（只指出观察角度，不必给买卖建议）\n"
+             "要求：只依据给的要闻，数字必须准确，不编造，不写免责声明，"
+             "不要使用 Markdown 标记（**、#、- 等）。"},
             {"role": "user", "content": build_macro_input(fx, by_sector)},
-        ], max_tokens=300, temperature=0.3)
+        ], max_tokens=900, temperature=0.4)
     except Exception as e:  # noqa: BLE001
         print("[brief] 全局导语失败：%s" % e)
         return ""
@@ -160,7 +193,7 @@ def render_brief(date_text, data, items_high, items_norm, summary, ai_ok):
 
     if summary:
         lead = ("<div class='lead-card brief-lead'><div><div class='eyebrow'>DAILY BRIEF · 豆粕研究</div>"
-                "<div>%s</div><div class='note'>AI 生成，仅供参考</div></div></div>" % html.escape(summary))
+                "<div>%s</div><div class='note'>AI 生成，仅供参考</div></div></div>" % html.escape(summary).replace("**", "").replace("\n", "<br>"))
     else:
         lead = ("<div class='lead-card brief-lead'><div><div class='eyebrow'>DAILY BRIEF · 豆粕研究</div>"
                 "<div>%s</div><div class='note'>AI 摘要未生成（%s）</div></div></div>"
@@ -228,7 +261,7 @@ def render_macro(date_text, by_sector, summary, fx):
 
     if summary:
         lead = ("<div class='lead-card brief-lead'><div><div class='eyebrow'>MARKET BRIEF · 全球市场</div>"
-                "<div>%s</div><div class='note'>AI 生成，仅供参考</div></div></div>" % html.escape(summary))
+                "<div>%s</div><div class='note'>AI 生成，仅供参考</div></div></div>" % html.escape(summary).replace("**", "").replace("\n", "<br>"))
     else:
         lead = ("<div class='lead-card brief-lead'><div><div class='eyebrow'>MARKET BRIEF · 全球市场</div>"
                 "<div>全球市场要闻汇总</div><div class='note'>AI 摘要未生成</div></div></div>")
