@@ -1,0 +1,11 @@
+[Unit]
+Description=Mysteel 豆粕数据定时采集
+
+[Timer]
+# 每日 18:30：日报通常 18:00 前发布；周度库存在周一发布
+OnCalendar=*-*-* 18:30:00
+Persistent=true
+Unit=mp-data-mysteel.service
+
+[Install]
+WantedBy=timers.target

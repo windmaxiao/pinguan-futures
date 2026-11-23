@@ -1,0 +1,18 @@
+[Unit]
+Description=Mysteel 豆粕数据采集与同步
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=mpdata
+Group=mpdata
+WorkingDirectory=/srv/mp-data
+Environment=TZ=Asia/Shanghai
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /srv/mp-data/app/mysteel.py --days 3
+ExecStartPost=/usr/bin/python3 /srv/mp-data/app/mysteel.py --sync
+ExecStartPost=/usr/bin/python3 /srv/mp-data/app/render.py
+StandardOutput=append:/srv/mp-data/logs/mysteel.log
+StandardError=append:/srv/mp-data/logs/mysteel.log
+TimeoutStartSec=900

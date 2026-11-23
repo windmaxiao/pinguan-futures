@@ -108,12 +108,15 @@ install -m 644 "$SRC_DIR"/deploy/mp-data-brief.service  /etc/systemd/system/
 install -m 644 "$SRC_DIR"/deploy/mp-data-brief.timer    /etc/systemd/system/
 install -m 644 "$SRC_DIR"/deploy/mp-data-news.service   /etc/systemd/system/
 install -m 644 "$SRC_DIR"/deploy/mp-data-news.timer     /etc/systemd/system/
+install -m 644 "$SRC_DIR"/deploy/mp-data-mysteel.service /etc/systemd/system/
+install -m 644 "$SRC_DIR"/deploy/mp-data-mysteel.timer   /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now mp-data.timer
 systemctl enable --now mp-data-backup.timer
 systemctl enable --now mp-data-api.service
 systemctl enable --now mp-data-brief.timer
 systemctl enable --now mp-data-news.timer
+systemctl enable --now mp-data-mysteel.timer
 say "已启用定时任务与写入接口（127.0.0.1:8765）"
 
 # 6. 首次运行
