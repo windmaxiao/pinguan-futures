@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import contracts as contract_mod  # noqa: E402
 import db  # noqa: E402
+import judge  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = os.path.join(ROOT, "app")
@@ -607,13 +608,22 @@ def render_index(cfg, data):
         html.escape(us_val), html.escape(us_chg),
     )
 
-    # 右侧：判断语
+    # 右侧：判断语（规则 + AI 并列）
+    ai_text = (data.get("ai") or "").strip()
+    if ai_text:
+        ai_block = """
+  <div class="hero-split"></div>
+  <div class="hero-eyebrow">AI 判断</div>
+  <div class="hero-ai">%s</div>
+  <div class="hero-lead-note">模型生成，仅供研究参考。</div>""" % html.escape(ai_text)
+    else:
+        ai_block = ""
     hero_right = """
 <div class="hero-cell">
-  <div class="hero-eyebrow">盘前判断</div>
+  <div class="hero-eyebrow">规则判断</div>
   <div class="hero-lead">%s</div>
-  <div class="hero-lead-note">规则根据下方数据生成，仅供研究参考。</div>
-</div>""" % html.escape(data["lead"])
+  <div class="hero-lead-note">规则根据下方数据生成，仅供研究参考。</div>%s
+</div>""" % (html.escape(data["lead"]), ai_block)
 
     hero_html = '<div class="hero">%s%s%s</div>' % (hero_left, hero_mid, hero_right)
 
@@ -1227,6 +1237,11 @@ def main():
     conn = db.connect(DB_PATH)
 
     data = build(conn, cfg)
+    try:
+        data["ai"] = judge.current(conn, data)
+    except Exception as exc:  # noqa: BLE001
+        print("[render] AI 判断跳过：%s" % str(exc)[:100])
+        data["ai"] = ""
     os.makedirs(SITE, exist_ok=True)
     os.makedirs(os.path.join(SITE, "data"), exist_ok=True)
 

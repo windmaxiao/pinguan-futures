@@ -180,6 +180,19 @@ nav a:hover, nav a.active {
   color: rgba(255,255,255,.4);
 }
 
+/* 规则判断与 AI 判断之间的分隔 */
+.hero-split {
+  margin: 14px 0 12px;
+  height: 1px;
+  background: rgba(255,255,255,.18);
+}
+
+.hero-ai {
+  font-size: 13px;
+  line-height: 1.65;
+  color: rgba(255,255,255,.86);
+}
+
 /* ── 四维状态条 ── */
 .dims {
   display: grid;

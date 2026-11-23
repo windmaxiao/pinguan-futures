@@ -70,6 +70,7 @@ PATTERNS = [
     ("港口大豆库存", r"港口大豆库存" + _FILLER + r"([\d.]+)\s*万吨", "万吨"),
     ("豆粕库存", r"豆粕库存" + _FILLER + r"([\d.]+)\s*万吨", "万吨"),
     ("大豆库存", r"大豆库存" + _FILLER + r"([\d.]+)\s*万吨", "万吨"),
+    ("到港量", r"到港[^。]{0,40}?约\s*([\d.]+)\s*万吨", "万吨"),
     ("开机率", r"(?:开机率|开工率)" + _FILLER + r"([\d.]+)\s*%", "%"),
     ("开机量", r"(?:开机量|压榨量)" + _FILLER + r"([\d.]+)\s*万吨", "万吨"),
     ("成交量", r"成交量" + _FILLER + r"([\d.]+)\s*(万吨|吨)", ""),
@@ -79,6 +80,9 @@ SPOT_RE = re.compile(
     r"([\u4e00-\u9fa5]{2,10})\s*报价\s*([\d]{3,4})\s*元/吨"
     r"(?:[，,]\s*(上涨|下跌|持平|稳定)?\s*(\d+)?\s*元/吨)?"
 )
+
+# 华东那类文章写成“泰州汇福3050元/吨”，企业名和价格直接相连
+FLAT_RE = re.compile(r"([\u4e00-\u9fa5]{2,8})([\d]{3,4})\s*元/吨")
 
 
 def extract(text):
@@ -90,19 +94,31 @@ def extract(text):
                 out[key] = {"value": float(m.group(1)), "unit": unit or m.group(2)}
             except ValueError:
                 pass
-    spots = []
+
+    firms = []
     for m in SPOT_RE.finditer(text):
         try:
-            spots.append({
+            firms.append({
                 "firm": m.group(1),
                 "price": float(m.group(2)),
                 "change": (m.group(3) or "") + (m.group(4) or ""),
             })
         except ValueError:
             pass
-    if spots:
-        out["现货报价"] = spots
-    # 部分文章会给出全国均价
+    if not firms:
+        for m in FLAT_RE.finditer(text):
+            try:
+                firms.append({"firm": m.group(1), "price": float(m.group(2)), "change": ""})
+            except ValueError:
+                pass
+    if firms:
+        out["现货报价"] = firms
+        # 多家报价取均值：华东现货口径就是这几家的平均
+        prices = [f["price"] for f in firms if 1000 <= f["price"] <= 9000]
+        if len(prices) >= 2:
+            out["均价"] = {"value": round(sum(prices) / len(prices), 1), "unit": "元/吨",
+                          "n": len(prices)}
+
     m = re.search(r"全国均价" + _FILLER + r"([\d.]+)\s*元/吨", text)
     if m:
         out["全国均价"] = {"value": float(m.group(1)), "unit": "元/吨"}
