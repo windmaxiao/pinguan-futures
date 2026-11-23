@@ -1,6 +1,6 @@
 # 品观（mp-data）
 
-一个把「公开行情 + 手工录入的产业数据」变成**盘前一页纸**的小系统。
+一个把「公开行情 + 产业数据」变成**盘前一页纸**的小系统。
 零第三方依赖（纯 Python 标准库），静态页面，定时抓取。
 
 - 设计说明：[../数据源设计.md](../数据源设计.md)
@@ -236,7 +236,28 @@ AI 摘要走 OpenAI 兼容接口，凭据在 `/etc/mp-data/llm.json`：
 > 因为它是常驻进程，启动时就 import 了 render，不重启会用旧代码重新生成页面
 > （2026-11-18 踩过：接口保存一次，新布局被旧代码覆盖了）。
 
-## 手工录入
+## 数据采集
+
+### 自动采集
+
+| 数据 | 来源 | 频率 | 调度 |
+|---|---|---|---|
+| 期货行情、外盘、汇率、日线 | 新浪 | 日内多次 | `mp-data.timer` |
+| 现货价（华东 5 家均价）| Mysteel 豆粕频道 | 每日 | `mp-data-mysteel.timer` 18:30 |
+| 油厂豆粕/大豆库存、开机率、周度到港 | Mysteel 豆粕频道 | 每周 | 同上 |
+| 美豆期末库存 | USDA WASDE 文本版 | 每月 | `mp-data-wasde.timer` 08:10 |
+| 快讯、深度资讯、财经日历 | 金十数据（MCP）| 每 30 分钟 | `mp-data-news.timer` |
+
+Mysteel 抓取先落 `probe` 表，再由 `sync()` 按 `config.json` 的 `mysteel_sync`
+映射写入正式序列（`quality=auto`、`source=mysteel`），便于与手工数据区分。
+
+**Mysteel 有频率防护**：实测一天抓约 250 篇会触发 HTTP 451，
+所以日常只抓同步目标那几篇，遇到 451 打印提示后正常退出。
+
+### 手工录入（仅剩 1 项）
+
+目前只有**生猪养殖利润**（`C1.hog_profit`）需要手工——它的免费数据源拿不到，
+其余产业数据均已自动采集。
 
 ### 网页录入（推荐，手机也能填）
 
@@ -256,16 +277,25 @@ sudo -u mpdata python3 /srv/mp-data/app/manual.py set B1.inventory 130.5 --date 
 sudo -u mpdata python3 /srv/mp-data/app/manual.py show B1.inventory 10
 ```
 
-**每周一条命令**（库存/大豆库存/开机率/到港一次录完，没给的项自动跳过）：
+**手工项的日常维护**（现在只剩养殖利润，每周一次）：
+
+```bash
+sudo -u mpdata python3 /srv/mp-data/app/manual.py set C1.hog_profit -447 --date 2026-11-13
+sudo -u mpdata python3 /srv/mp-data/app/render.py
+```
+
+`weekly` 子命令仍保留（库存/大豆库存/开机率/到港一次录完），
+用于自动抓取失败时手工补录：
 
 ```bash
 sudo -u mpdata python3 /srv/mp-data/app/manual.py weekly \
     --inv 125.23 --soy 795.39 --rate 48.88 --date 2026-11-13
-sudo -u mpdata python3 /srv/mp-data/app/render.py
 ```
 
-数据来源建议固定用**同一家同一口径**（如 Mysteel「主要油厂」），
-口径混用会让 5 年分位和同比失真。
+数据来源固定用**同一家同一口径**（如 Mysteel「主要油厂」），
+口径混用会让同比和分位失真。注意 Mysteel 有两条容易混淆的库存序列：
+「全国主要区域大豆库存」（约 795 万吨，对应 B2）与「全国港口大豆库存」（约 889 万吨），
+两者不是同一条线。
 
 ## 指标编号对照
 
@@ -273,21 +303,21 @@ sudo -u mpdata python3 /srv/mp-data/app/render.py
 |---|---|---|
 | `A1.<合约>.settle/close/oi/volume` | 期货结算价/收盘/持仓/成交 | 新浪 |
 | `A3.S.close` | CBOT 美豆收盘 | 新浪 |
-| `A4.spot` | 豆粕现货价（华东，手工） | 手工 |
+| `A4.spot` | 豆粕现货价（华东 5 家均价） | Mysteel |
 | `A4.spot.100ppi` | 豆粕现货基准价（生意社，**仅作对照**） | 生意社 |
 | `A5.basis.main` | 基差 = 现货 − 主力结算 | 派生 |
 | `A6.spread.<近月>-<远月>` | 月差，如 `A6.spread.M2701-M2703` | 派生 |
 | `A7.spread.M-RM` | 豆菜粕价差 | 派生 |
-| `B1.inventory` | 油厂豆粕库存 | 手工 |
-| `B2.soy_inventory` | 油厂大豆库存 | 手工 |
-| `B3.crush_rate` | 开机率 | 手工 |
-| `B4.arrival` | 周度到港 | 手工 |
+| `B1.inventory` | 油厂豆粕库存 | Mysteel |
+| `B2.soy_inventory` | 油厂大豆库存 | Mysteel |
+| `B3.crush_rate` | 开机率 | Mysteel |
+| `B4.arrival` | 周度到港 | Mysteel |
 | `B6.soy_cost` | 进口大豆含税到港成本 | 派生 |
 | `B6.crush_margin` | 盘面压榨利润 | 派生 |
 | `C1.hog_profit` | 生猪自繁自养头均利润 | 手工 |
 | `C2.hog_future.main` | 生猪期货主力 | 派生 |
 | `A8.USDCNY` | 美元兑人民币中间价 | 新浪 |
-| `D1.wasde_stock` | 美豆期末库存 | 手工 |
+| `D1.wasde_stock` | 美豆期末库存 | USDA |
 
 ### 压榨利润口径
 
@@ -377,9 +407,9 @@ Token 获取：https://mcp.jin10.com/app/ 登录后点「管理TOKEN」。
 ## 已知约束
 
 1. **大商所官网有 WAF（HTTP 412）**，行情统一走新浪，不用官方接口。
-2. **现货价、油厂库存无公开稳定接口**，必须手工录入（这也是数据可信度最高的方式——你知道数字从哪来）。
+2. **产业数据以 Mysteel 免费频道为主**，HTML 结构变更即失效，且有 451 频率防护；养殖利润仍无免费源，只能手工。
 3. **新浪外盘只给当日快照**，美豆历史需另想办法，所以「成本端」状态在头几天可能是中性。
-4. **5 年分位需要历史样本**，样本不足时页面明确标「分位待积累」，不编造。
+4. **分位用的是全部历史样本**，不是 5 年同期对齐；样本不足 8 条时页面不显示分位条，只给绝对值。
 5. 页面所有数字都标了来源与日期，手工项在「数据体检」里单独列出，不会静默混入。
 
 ## 故障排查

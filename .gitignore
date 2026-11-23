@@ -31,3 +31,6 @@ _probe/
 # 系统文件
 .DS_Store
 Thumbs.db
+
+# 第三方评估报告（本地留存，不入库）
+docs/技术与基本面评价报告.md
