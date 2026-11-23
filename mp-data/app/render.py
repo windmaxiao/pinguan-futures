@@ -262,6 +262,7 @@ def _nav(active=""):
         ("macro.html",  "全局简报"),
         ("weekly.html", "周度数据"),
         ("input.html",  "数据录入"),
+        ("journal.html", "交易复盘"),
         ("admin.html",  "管理"),
     ]
     items = "".join(
@@ -1017,6 +1018,261 @@ def render_input(conn, cfg, data):
 
 # ─── render_unlock ────────────────────────────────────────────────────────────
 
+def render_journal(cfg):
+    """交易记录与复盘页：管理码验证后从 /api/journal 拉数据。"""
+    tpl = """<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>交易复盘 · __TITLE__</title><link rel="stylesheet" href="style.css"></head>
+<body><div class="wrap">
+<header>
+  <h1>交易复盘</h1>
+  <div class="meta">判断记录 · 模拟盘 · 归因</div>
+  <nav><a href="index.html">← 返回看板</a><a href="input.html">录入数据</a></nav>
+</header>
+
+<div class="card" id="gate">
+  <div class="note" style="margin:0 0 12px">复盘数据需要管理码验证</div>
+  <form class="formbar" id="gform">
+    <label>管理码 <input type="password" id="acode" autocomplete="off" autofocus></label>
+    <button id="gbtn" type="submit">验证</button>
+  </form>
+  <div id="gmsg"></div>
+</div>
+
+<div id="area" style="display:none">
+  <div class="kpi-grid" id="stats"></div>
+
+  <h2>今日判断</h2>
+  <div class="card">
+    <form id="jform">
+      <div class="formbar">
+        <label>日期 <input type="date" id="j-date"></label>
+        <label>合约 <input type="text" id="j-note" value="M2701" style="width:90px"></label>
+        <label>方向
+          <select id="j-direction">
+            <option>观望</option><option>多</option><option>空</option>
+          </select>
+        </label>
+      </div>
+      <div style="margin-top:10px">
+        <div class="note">理由（看到什么、为什么）</div>
+        <textarea id="j-reason" rows="3" style="width:100%"></textarea>
+      </div>
+      <div style="margin-top:10px">
+        <div class="note">反证条件（出现什么说明判断错了）</div>
+        <textarea id="j-risk" rows="2" style="width:100%"></textarea>
+      </div>
+      <div class="formbar"><button type="submit">保存判断</button></div>
+      <div id="jmsg"></div>
+    </form>
+  </div>
+
+  <h2>记录开仓</h2>
+  <div class="card">
+    <form id="tform">
+      <div class="formbar">
+        <label>合约 <input type="text" id="t-contract" value="M2701" style="width:90px"></label>
+        <label>方向 <select id="t-side"><option>多</option><option>空</option></select></label>
+        <label>手数 <input type="number" id="t-lots" value="1" min="1" style="width:70px"></label>
+        <label>开仓价 <input type="number" id="t-price" step="0.1" style="width:100px"></label>
+        <label>日期 <input type="date" id="t-date"></label>
+      </div>
+      <div style="margin-top:10px">
+        <div class="note">开仓理由</div>
+        <textarea id="t-reason" rows="2" style="width:100%"></textarea>
+      </div>
+      <div class="formbar"><button type="submit">记录开仓</button></div>
+      <div id="tmsg"></div>
+    </form>
+  </div>
+
+  <h2>持仓中</h2>
+  <div class="card"><div class="tablewrap"><table>
+    <thead><tr><th>合约</th><th>方向</th><th class="num">手数</th><th class="num">开仓价</th>
+    <th>开仓日</th><th>理由</th><th></th></tr></thead>
+    <tbody id="open-body"></tbody></table></div></div>
+
+  <h2>已平仓</h2>
+  <div class="card"><div class="tablewrap"><table>
+    <thead><tr><th>合约</th><th>方向</th><th class="num">手数</th><th class="num">开仓</th>
+    <th class="num">平仓</th><th class="num">盈亏</th><th>持仓天数</th><th>复盘</th></tr></thead>
+    <tbody id="closed-body"></tbody></table></div></div>
+
+  <h2>判断记录</h2>
+  <div class="card"><div class="tablewrap"><table>
+    <thead><tr><th>日期</th><th>方向</th><th>理由</th><th>反证条件</th><th class="num">事后验证</th></tr></thead>
+    <tbody id="list-body"></tbody></table></div></div>
+</div>
+</div>
+<script>
+(function () {
+  var COOKIE_MSG = '需要管理码';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c];
+    });
+  }
+  function post(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body || {})
+    }).then(function (r) { return r.json(); });
+  }
+  function say(el, t, ok) {
+    var node = $(el);
+    node.style.color = ok ? '#0a7d32' : '#c0392b';
+    node.textContent = t;
+  }
+
+  function renderStats(d) {
+    var j = d.judge, t = d.trade;
+    var cards = [
+      ['判断样本', j.n + ' 次'],
+      ['判断准确率', j.rate == null ? '—' : j.rate + '%'],
+      ['已平仓', t.closed_n + ' 笔'],
+      ['累计盈亏', (t.total_pnl >= 0 ? '+' : '') + t.total_pnl.toFixed(0) + ' 元'],
+      ['胜率', t.win_rate == null ? '—' : t.win_rate + '%'],
+      ['平均持仓', t.avg_holding == null ? '—' : t.avg_holding + ' 天']
+    ];
+    $('stats').innerHTML = cards.map(function (c) {
+      return "<div class='kpi-card'><div class='kpi-label'>" + c[0] +
+             "</div><div class='kpi-val'>" + esc(c[1]) + "</div></div>";
+    }).join('');
+  }
+
+  function renderOpen(trades) {
+    var opens = trades.filter(function (x) { return x.status === 'open'; });
+    if (!opens.length) { $('open-body').innerHTML = "<tr><td colspan='7'>无持仓</td></tr>"; return; }
+    $('open-body').innerHTML = opens.map(function (x) {
+      return "<tr><td>" + esc(x.contract) + "</td><td>" + esc(x.side) +
+        "</td><td class='num'>" + x.lots + "</td><td class='num'>" + x.open_price +
+        "</td><td>" + esc(x.open_date) + "</td><td>" + esc((x.reason || '').slice(0, 30)) +
+        "</td><td><button type='button' data-close='" + x.id + "'>平仓</button></td></tr>";
+    }).join('');
+  }
+
+  function renderClosed(trades) {
+    var closed = trades.filter(function (x) { return x.status === 'closed'; });
+    if (!closed.length) { $('closed-body').innerHTML = "<tr><td colspan='8'>暂无</td></tr>"; return; }
+    $('closed-body').innerHTML = closed.map(function (x) {
+      var cls = x.pnl >= 0 ? 'up' : 'dn';
+      return "<tr><td>" + esc(x.contract) + "</td><td>" + esc(x.side) +
+        "</td><td class='num'>" + x.lots + "</td><td class='num'>" + x.open_price +
+        "</td><td class='num'>" + x.close_price + "</td><td class='num " + cls + "'>" +
+        (x.pnl >= 0 ? '+' : '') + Number(x.pnl).toFixed(0) +
+        "</td><td>" + esc(x.open_date) + " ~ " + esc(x.close_date) +
+        "</td><td>" + esc((x.review || '').slice(0, 24)) + "</td></tr>";
+    }).join('');
+  }
+
+  function renderJournal(entries, judge) {
+    var map = {};
+    (judge.checked || []).forEach(function (c) {
+      map[c.date] = (c.ok ? '✅ ' : '❌ ') + '3日后 ' + (c.change > 0 ? '+' : '') + c.change;
+    });
+    if (!entries.length) { $('list-body').innerHTML = "<tr><td colspan='5'>暂无判断记录</td></tr>"; return; }
+    $('list-body').innerHTML = entries.map(function (x) {
+      return "<tr><td>" + esc(x.date) + "</td><td>" + esc(x.direction) +
+        "</td><td>" + esc((x.reason || '').slice(0, 40)) +
+        "</td><td>" + esc((x.risk || '').slice(0, 30)) +
+        "</td><td class='num'>" + esc(map[x.date] || '—') + "</td></tr>";
+    }).join('');
+  }
+
+  function load() {
+    return fetch('/api/journal').then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) return false;
+      renderStats(d); renderOpen(d.trades); renderClosed(d.trades);
+      renderJournal(d.journal, d.judge);
+      return true;
+    });
+  }
+
+  // 管理码验证
+  fetch('/auth/admin/status').then(function (r) { return r.json(); }).then(function (j) {
+    if (j.ok) { $('gate').style.display = 'none'; $('area').style.display = ''; load(); }
+  }).catch(function () {});
+
+  $('gform').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var code = $('acode').value.trim();
+    if (!code) { say('gmsg', '请输入管理码', false); return; }
+    post('/auth/admin/login', {code: code}).then(function (j) {
+      if (!j.ok) { say('gmsg', j.error || '管理码不正确', false); return; }
+      $('gate').style.display = 'none'; $('area').style.display = '';
+      load();
+    }).catch(function () { say('gmsg', '网络错误', false); });
+  });
+
+  // 保存判断
+  $('jform').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var body = {
+      date: $('j-date').value || new Date().toISOString().slice(0, 10),
+      direction: $('j-direction').value,
+      reason: $('j-reason').value,
+      risk: $('j-risk').value,
+      note: $('j-note').value
+    };
+    if (!body.reason.trim()) { say('jmsg', '请写理由', false); return; }
+    post('/api/journal', body).then(function (j) {
+      if (!j.ok) { say('jmsg', j.error || '保存失败', false); return; }
+      say('jmsg', '已保存', true);
+      $('j-reason').value = ''; $('j-risk').value = '';
+      load();
+    }).catch(function () { say('jmsg', '网络错误', false); });
+  });
+
+  // 记录开仓
+  $('tform').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var body = {
+      contract: $('t-contract').value.trim(),
+      side: $('t-side').value,
+      lots: Number($('t-lots').value),
+      open_price: Number($('t-price').value),
+      open_date: $('t-date').value || new Date().toISOString().slice(0, 10),
+      reason: $('t-reason').value
+    };
+    if (!(body.open_price > 0)) { say('tmsg', '请填开仓价', false); return; }
+    post('/api/trade', body).then(function (j) {
+      if (!j.ok) { say('tmsg', j.error || '保存失败', false); return; }
+      say('tmsg', '已记录开仓', true);
+      $('t-price').value = ''; $('t-reason').value = '';
+      load();
+    }).catch(function () { say('tmsg', '网络错误', false); });
+  });
+
+  // 平仓（点击持仓行）
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-close]');
+    if (!btn) return;
+    var id = btn.getAttribute('data-close');
+    var price = prompt('平仓价：');
+    if (!price) return;
+    var review = prompt('复盘（为什么平仓，可留空）：') || '';
+    post('/api/trade/close', {
+      id: Number(id), close_price: Number(price), review: review
+    }).then(function (j) {
+      if (!j.ok) { alert(j.error || '平仓失败'); return; }
+      alert('已平仓，盈亏 ' + j.pnl.toFixed(0) + ' 元');
+      load();
+    });
+  });
+
+  var today = new Date().toISOString().slice(0, 10);
+  $('j-date').value = today;
+  $('t-date').value = today;
+})();
+</script>
+</body></html>"""
+    return (tpl.replace("__TITLE__", html.escape(cfg["site_title"])))
+
+
 def render_unlock(cfg):
     title = html.escape(cfg["site_title"])
     return """{head}
@@ -1278,6 +1534,8 @@ def main():
         fh.write(render_unlock(cfg))
     with open(os.path.join(SITE, "admin.html"), "w", encoding="utf-8") as fh:
         fh.write(render_admin(cfg))
+    with open(os.path.join(SITE, "journal.html"), "w", encoding="utf-8") as fh:
+        fh.write(render_journal(cfg))
     with open(os.path.join(SITE, "weekly.html"), "w", encoding="utf-8") as fh:
         fh.write(render_weekly(conn, cfg, data))
     with open(os.path.join(SITE, "data", "summary.json"), "w", encoding="utf-8") as fh:

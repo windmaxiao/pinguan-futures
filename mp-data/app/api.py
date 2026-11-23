@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import db      # noqa: E402
 import gate    # noqa: E402
+import journal # noqa: E402
 import render  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -145,6 +146,17 @@ class Handler(BaseHTTPRequestHandler):
                 "admin_session_hours": data.get("admin_session_hours"),
             })
             return
+        if self.path == "/api/journal":
+            if not self._is_admin():
+                self._send(401, {"ok": False, "error": "需要管理码"})
+                return
+            conn = db.connect(DB_PATH)
+            try:
+                payload = journal.summary(conn)
+            finally:
+                conn.close()
+            self._send(200, {"ok": True, **payload})
+            return
         if self.path != "/api/latest":
             self._send(404, {"ok": False, "error": "not found"})
             return
@@ -183,6 +195,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/auth/admin/toggle":
             self._admin_toggle()
+            return
+
+        if path.startswith("/api/journal") or path.startswith("/api/trade"):
+            self._journal_write(path)
             return
 
         if path != "/api/manual":
@@ -286,6 +302,82 @@ class Handler(BaseHTTPRequestHandler):
         data["gate_enabled"] = enabled
         gate.save(data)
         self._send(200, {"ok": True, "gate_enabled": enabled})
+
+    # ---------------- 交易记录
+
+    def _journal_write(self, path):
+        if not self._is_admin():
+            self._send(401, {"ok": False, "error": "需要管理码"})
+            return
+        if not self._origin_ok():
+            self._send(403, {"ok": False, "error": "来源不合法"})
+            return
+        try:
+            p = self._json_body()
+        except Exception as e:  # noqa: BLE001
+            self._send(400, {"ok": False, "error": "请求解析失败：%s" % e})
+            return
+
+        conn = db.connect(DB_PATH)
+        try:
+            if path == "/api/journal":
+                date = (p.get("date") or "").strip()
+                if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+                    raise ValueError("日期格式应为 YYYY-MM-DD")
+                direction = (p.get("direction") or "").strip()
+                if direction not in ("多", "空", "观望"):
+                    raise ValueError("方向应为 多 / 空 / 观望")
+                journal.save_journal(conn, date, direction,
+                                     (p.get("reason") or "")[:300],
+                                     (p.get("risk") or "")[:300],
+                                     (p.get("note") or "").strip()[:12])
+                self._send(200, {"ok": True})
+
+            elif path == "/api/trade":
+                contract = (p.get("contract") or "").strip()[:12]
+                side = (p.get("side") or "").strip()
+                if not contract:
+                    raise ValueError("合约不能为空")
+                if side not in ("多", "空"):
+                    raise ValueError("方向应为 多 / 空")
+                lots = int(p.get("lots") or 1)
+                if not 1 <= lots <= 100:
+                    raise ValueError("手数不合法")
+                open_price = float(p.get("open_price") or 0)
+                if open_price <= 0:
+                    raise ValueError("开仓价不合法")
+                tid = journal.save_trade(conn, contract, side, lots,
+                                         (p.get("open_date") or
+                                          datetime.date.today().isoformat()),
+                                         open_price, (p.get("reason") or "")[:300])
+                self._send(200, {"ok": True, "id": tid})
+
+            elif path == "/api/trade/close":
+                tid = int(p.get("id") or 0)
+                if tid <= 0:
+                    raise ValueError("交易编号不合法")
+                close_price = float(p.get("close_price") or 0)
+                if close_price <= 0:
+                    raise ValueError("平仓价不合法")
+                pnl = journal.close_trade(
+                    conn, tid,
+                    (p.get("close_date") or datetime.date.today().isoformat()),
+                    close_price, p.get("fee") or 0, (p.get("review") or "")[:300])
+                self._send(200, {"ok": True, "pnl": pnl})
+
+            elif path == "/api/trade/delete":
+                journal.delete_trade(conn, int(p.get("id") or 0))
+                self._send(200, {"ok": True})
+
+            else:
+                self._send(404, {"ok": False, "error": "not found"})
+        except (ValueError, TypeError) as e:
+            self._send(400, {"ok": False, "error": str(e)})
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            self._send(500, {"ok": False, "error": "保存失败：%s" % e})
+        finally:
+            conn.close()
 
 
 def main():
