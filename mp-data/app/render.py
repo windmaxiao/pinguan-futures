@@ -328,6 +328,12 @@ def build(conn, cfg):
         "delta": inv_delta, "pct": inv_pct,
     }
 
+    r_wasde = db.latest(conn, "D1.wasde_stock")
+    data["wasde"] = {
+        "value": r_wasde["value"] if r_wasde else None,
+        "date": r_wasde["date"] if r_wasde else None,
+    }
+
     spreads = []
     for i in range(len(m_codes) - 1):
         sid = "A6.spread.%s-%s" % (m_codes[i], m_codes[i + 1])
@@ -525,7 +531,11 @@ def dim_brief(key, data):
         first = "%s 美分" % fmt(us["last"], 0)
         if us["chg_pct"] is not None:
             first += " %+.2f%%" % us["chg_pct"]
-        return [first]
+        out = [first]
+        wasde = data.get("wasde") or {}
+        if wasde.get("value") is not None:
+            out.append("美豆库存 %s 亿蒲" % fmt(wasde["value"], 2))
+        return out
     if key == "supply":
         out = []
         inv = data["inventory"]
