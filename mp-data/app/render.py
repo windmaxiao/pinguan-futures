@@ -360,23 +360,19 @@ def build(conn, cfg):
     dims["cost"] = cost
 
     supply = 0
-    supply_basis = "无数据"
     if inv is not None:
         if inv_pct is not None:
-            supply_basis = "5年分位"
             if inv_pct >= th["inventory_high_pct"]:
                 supply = -1
             elif inv_pct <= th["inventory_low_pct"]:
                 supply = 1
         else:
             abs_th = th.get("inventory_abs", {})
-            supply_basis = "绝对水平"
             if inv["value"] >= abs_th.get("loose", 115):
                 supply = -1
             elif inv["value"] <= abs_th.get("tight", 60):
                 supply = 1
     dims["supply"] = supply
-    data["supply_basis"] = supply_basis
     data["inv_n"] = db.count(conn, "B1.inventory")
 
     profit, profit_prev, profit_delta = latest_pair(conn, "C1.hog_profit")
@@ -543,7 +539,10 @@ def dim_brief(key, data):
         out = []
         inv = data["inventory"]
         if inv["value"] is not None:
-            out.append("库存 %s 万吨" % fmt(inv["value"], 1))
+            s = "库存 %s 万吨" % fmt(inv["value"], 1)
+            if inv.get("pct") is not None:
+                s += "（%d%% 分位）" % inv["pct"]
+            out.append(s)
         cm = data.get("crush_margin") or {}
         if cm.get("value") is not None:
             out.append("压榨 %s 元" % fmt(cm["value"], 0))

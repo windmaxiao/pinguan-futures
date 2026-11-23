@@ -28,8 +28,6 @@ BASE = "https://www.usda.gov/oce/commodity/wasde/wasde%02d%02d.txt"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
 
 _CTX = ssl.create_default_context()
-_CTX.check_hostname = False
-_CTX.verify_mode = ssl.CERT_NONE
 
 
 def _fetch(url, timeout=60):
