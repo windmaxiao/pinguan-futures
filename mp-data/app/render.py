@@ -534,7 +534,9 @@ def dim_brief(key, data):
         out = [first]
         wasde = data.get("wasde") or {}
         if wasde.get("value") is not None:
-            out.append("美豆库存 %s 亿蒲" % fmt(wasde["value"], 2))
+            # 1 亿蒲（大豆，60 磅/蒲）= 272.155 万吨
+            out.append("美豆库存 %s 亿蒲（%s 万吨）" % (
+                fmt(wasde["value"], 2), fmt(wasde["value"] * 272.155, 0)))
         return out
     if key == "supply":
         out = []
