@@ -334,10 +334,12 @@ def build(conn, cfg):
         r, _, d = latest_pair(conn, sid)
         if r:
             spreads.append({"name": "%s−%s" % (m_codes[i], m_codes[i + 1]),
-                            "value": r["value"], "delta": d})
+                            "value": r["value"], "delta": d,
+                            "pct": percentile(conn, sid)})
     r_mr = db.latest(conn, "A7.spread.M-RM")
     if r_mr:
-        spreads.append({"name": "豆粕−菜粕", "value": r_mr["value"], "delta": None})
+        spreads.append({"name": "豆粕−菜粕", "value": r_mr["value"], "delta": None,
+                        "pct": percentile(conn, "A7.spread.M-RM")})
     data["spreads"] = spreads
 
     dims = {}
@@ -694,17 +696,20 @@ def render_index(cfg, data):
 
     # ── 价差 ──
     spread_rows = "".join(
-        "<tr><td>%s</td><td class='num %s'>%s %s</td></tr>"
-        % (s["name"], cls_of(s["delta"]), fmt(s["value"], 1), arrow(s["delta"]))
+        "<tr><td>%s</td><td class='num %s'>%s %s</td><td class='num'>%s</td></tr>"
+        % (s["name"], cls_of(s["delta"]), fmt(s["value"], 1), arrow(s["delta"]),
+           ("%.0f%%" % s["pct"]) if s.get("pct") is not None else "—")
         for s in data["spreads"]
-    ) or "<tr><td colspan='2'>暂无价差数据</td></tr>"
+    ) or "<tr><td colspan='3'>暂无价差数据</td></tr>"
 
     spread_html = """
 <h2>价差结构</h2>
 <div class="card"><table>
-  <thead><tr><th>价差</th><th class="num">数值（元/吨）</th></tr></thead>
+  <thead><tr><th>价差</th><th class="num">数值（元/吨）</th><th class="num">历史分位</th></tr></thead>
   <tbody>%s</tbody>
-</table></div>""" % spread_rows
+</table>
+  <div class="note" style="margin-top:8px">历史分位＝当前价差在过去一年同组合约中的位置，低位偏近月弱、高位偏近月强。</div>
+</div>""" % spread_rows
 
     # ── 核心指标 2×2 ──
     def kpi_card(label, val_str, sub_str, pct_val=None):
