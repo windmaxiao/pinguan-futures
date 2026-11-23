@@ -1,0 +1,11 @@
+[Unit]
+Description=USDA WASDE 每日检查
+
+[Timer]
+# WASDE 每月中旬发布，每日检查一次，只有出新报告才写库
+OnCalendar=*-*-* 08:10:00
+Persistent=true
+Unit=mp-data-wasde.service
+
+[Install]
+WantedBy=timers.target

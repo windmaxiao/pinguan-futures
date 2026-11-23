@@ -1,0 +1,17 @@
+[Unit]
+Description=USDA WASDE 数据同步
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=mpdata
+Group=mpdata
+WorkingDirectory=/srv/mp-data
+Environment=TZ=Asia/Shanghai
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /srv/mp-data/app/wasde.py
+ExecStartPost=/usr/bin/python3 /srv/mp-data/app/render.py
+StandardOutput=append:/srv/mp-data/logs/wasde.log
+StandardError=append:/srv/mp-data/logs/wasde.log
+TimeoutStartSec=300
