@@ -245,11 +245,12 @@ def sparkline_svg(values, width=64, height=22):
 
 
 def _page_head(title, active_page=""):
-    """返回 <head> 标签块（引用外部 CSS）。"""
+    """返回 <head> 标签块（引用外部 CSS 与 Favicon）。"""
     return (
         '<!doctype html>\n<html lang="zh-CN"><head><meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
         '<title>%s</title>\n'
+        '<link rel="icon" href="favicon.svg" type="image/svg+xml">\n'
         '<link rel="stylesheet" href="%s">\n'
         '</head>\n' % (html.escape(title), CSS_HREF)
     )
