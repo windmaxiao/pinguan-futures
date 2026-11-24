@@ -151,4 +151,7 @@ sudo bash mp-data/install.sh
 
 ## License
 
-MIT
+[MIT](LICENSE)
+
+使用本项目抓取第三方数据时，请遵守对应网站的服务条款。
+详见 [数据来源与合规](mp-data/README.md#数据来源与合规)。
