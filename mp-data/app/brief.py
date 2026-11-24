@@ -361,6 +361,8 @@ def prune_entries(directory, entries):
 
 
 def main():
+    args = sys.argv[1:]
+    no_mail = "--no-mail" in args
     cfg = load_config()
     conn = db.connect(DB_PATH)
     today = datetime.date.today().isoformat()
@@ -439,7 +441,10 @@ def main():
         soy_summary or data["lead"], "重要快讯 %d 条" % len(soy_high), base, today)
     body += "【全市场】\n%s\n\n详细：%s/macro/%s.html\n" % (
         macro_summary or "过去 24 小时各板块要闻", base, today)
-    notify.send("[豆粕早报] %s" % today, body, channels=("mail",))
+    if no_mail:
+        print("[brief] --no-mail：已跳过邮件发送")
+    else:
+        notify.send("[豆粕早报] %s" % today, body, channels=("mail",))
 
 
 if __name__ == "__main__":
