@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Mysteel 豆粕频道抓取（只读探查模式）。
+"""Mysteel 豆粕频道抓取与同步。
 
-当前阶段只把提取结果写入 probe 表，不进入正式序列。
-口径以 Mysteel 为准，正式切换前用 probe 数据与手工值做对照。
+流程：抓文章 → 正则提取数值 → 写入 probe 表；
+再由 sync() 按 config.json 的 mysteel_sync 映射写入正式序列（quality=auto）。
+
+站点有频率防护，日常只抓同步目标那几篇，遇到 HTTP 451 会打印提示后正常退出。
 
 用法：
-    python3 app/mysteel.py            # 抓今天的文章
-    python3 app/mysteel.py --days 3   # 回看最近 3 天
-    python3 app/mysteel.py --show     # 查看已存记录
+    python3 app/mysteel.py              # 抓今天的文章
+    python3 app/mysteel.py --days 3     # 回看最近 3 天
+    python3 app/mysteel.py --sync       # 把 probe 数据同步到正式序列
+    python3 app/mysteel.py --show       # 查看已存记录
+    python3 app/mysteel.py --full       # 抓窗口内所有分类文章（人工探查用）
 """
 import datetime
 import json

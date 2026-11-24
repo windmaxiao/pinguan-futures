@@ -25,6 +25,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS journal (
     date      TEXT PRIMARY KEY,
     direction TEXT,
+    contract  TEXT,
     reason    TEXT,
     risk      TEXT,
     note      TEXT,
@@ -52,10 +53,13 @@ CREATE TABLE IF NOT EXISTS trade (
 
 def init(conn):
     conn.executescript(SCHEMA)
-    # 老库补列（初次版本漏了 pnl）
-    cols = {row[1] for row in conn.execute("PRAGMA table_info(trade)")}
-    if "pnl" not in cols:
+    # 老库补列
+    tcols = {row[1] for row in conn.execute("PRAGMA table_info(trade)")}
+    if "pnl" not in tcols:
         conn.execute("ALTER TABLE trade ADD COLUMN pnl REAL")
+    jcols = {row[1] for row in conn.execute("PRAGMA table_info(journal)")}
+    if "contract" not in jcols:
+        conn.execute("ALTER TABLE journal ADD COLUMN contract TEXT")
     conn.commit()
 
 
@@ -65,12 +69,12 @@ def _now():
 
 # ---------------------------------------------------------------- 判断
 
-def save_journal(conn, date, direction, reason, risk, note=""):
+def save_journal(conn, date, direction, reason, risk, note="", contract=""):
     init(conn)
     conn.execute(
-        "INSERT OR REPLACE INTO journal (date, direction, reason, risk, note, created)"
-        " VALUES (?,?,?,?,?,?)",
-        (date, direction, reason, risk, note, _now()))
+        "INSERT OR REPLACE INTO journal (date, direction, contract, reason, risk, note, created)"
+        " VALUES (?,?,?,?,?,?,?)",
+        (date, direction, (contract or "").strip().upper(), reason, risk, note, _now()))
     conn.commit()
 
 
@@ -129,14 +133,26 @@ def list_trades(conn, limit=100):
 def _settle_series(conn, contract):
     rows = conn.execute(
         "SELECT date, value FROM series WHERE series_id=? ORDER BY date",
-        ("A1.%s.settle" % contract,)).fetchall()
+        ("A1.%s.settle" % (contract or "").strip().upper(),)).fetchall()
     return [(r["date"], r["value"]) for r in rows]
 
 
+def _default_contract(conn):
+    """当前主力合约，取不到再退回 M2701。"""
+    row = conn.execute("SELECT value FROM meta WHERE key='main_contract'").fetchone()
+    if row and row[0]:
+        return str(row[0])
+    return "M2701"
+
+
 def judge_hit_rate(conn, entries=None, horizon=3):
-    """判断准确率：判断日之后第 horizon 个交易日结算价的涨跌是否与方向一致。"""
+    """判断准确率：判断日之后第 horizon 个交易日结算价的涨跌是否与方向一致。
+
+    周末/节假日写的判断，基准取该日期之前最近的交易日（你下单时能看到的最新结算价）。
+    """
     init(conn)
     entries = entries if entries is not None else list_journal(conn, 500)
+    fallback = _default_contract(conn)
     series_cache = {}
     checked, hits = [], []
 
@@ -144,19 +160,26 @@ def judge_hit_rate(conn, entries=None, horizon=3):
         d = e.get("direction")
         if d not in ("多", "空"):
             continue
-        contract = e.get("note") or "M2701"
+        contract = (e.get("contract") or e.get("note") or fallback).strip().upper()
         series = series_cache.setdefault(contract, _settle_series(conn, contract))
         dates = [x[0] for x in series]
-        if e["date"] not in dates:
+        if not dates:
             continue
-        i = dates.index(e["date"])
+        if e["date"] in dates:
+            i = dates.index(e["date"])
+        else:
+            # 非交易日：取判断日之前最近的交易日作为基准
+            prior = [k for k, day in enumerate(dates) if day <= e["date"]]
+            if not prior:
+                continue
+            i = prior[-1]
         j = i + horizon
         if j >= len(series):
             continue
         change = series[j][1] - series[i][1]
         ok = (change > 0) if d == "多" else (change < 0)
         checked.append({"date": e["date"], "direction": d,
-                        "change": round(change, 1), "ok": ok})
+                        "base": dates[i], "change": round(change, 1), "ok": ok})
         hits.append(ok)
 
     return {
@@ -174,7 +197,8 @@ def trade_stats(conn, trades=None):
 
     total = round(sum(t["pnl"] for t in closed), 2) if closed else 0.0
     wins = [t for t in closed if t["pnl"] > 0]
-    losses = [t for t in closed if t["pnl"] <= 0]
+    losses = [t for t in closed if t["pnl"] < 0]
+    evens = [t for t in closed if t["pnl"] == 0]
 
     holding = []
     for t in closed:
@@ -198,6 +222,7 @@ def trade_stats(conn, trades=None):
         "total_pnl": total,
         "win_n": len(wins),
         "loss_n": len(losses),
+        "even_n": len(evens),
         "win_rate": round(len(wins) * 100.0 / len(closed), 1) if closed else None,
         "avg_holding": round(sum(holding) / len(holding), 1) if holding else None,
         "max_win": round(max((t["pnl"] for t in closed), default=0), 2),

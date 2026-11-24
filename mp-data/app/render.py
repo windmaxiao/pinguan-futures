@@ -1053,7 +1053,7 @@ def render_journal(cfg):
     <form id="jform">
       <div class="formbar">
         <label>日期 <input type="date" id="j-date"></label>
-        <label>合约 <input type="text" id="j-note" value="M2701" style="width:90px"></label>
+        <label>合约 <input type="text" id="j-contract" value="M2701" style="width:90px"></label>
         <label>方向
           <select id="j-direction">
             <option>观望</option><option>多</option><option>空</option>
@@ -1114,6 +1114,13 @@ def render_journal(cfg):
 (function () {
   var COOKIE_MSG = '需要管理码';
   function $(id) { return document.getElementById(id); }
+  // 本地日期（不能用 toISOString：它返回 UTC，北京时间清晨会退一天）
+  function todayLocal() {
+    var d = new Date();
+    return [d.getFullYear(),
+            String(d.getMonth() + 1).padStart(2, '0'),
+            String(d.getDate()).padStart(2, '0')].join('-');
+  }
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
       return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c];
@@ -1216,11 +1223,11 @@ def render_journal(cfg):
   $('jform').addEventListener('submit', function (e) {
     e.preventDefault();
     var body = {
-      date: $('j-date').value || new Date().toISOString().slice(0, 10),
+      date: $('j-date').value || todayLocal(),
       direction: $('j-direction').value,
       reason: $('j-reason').value,
       risk: $('j-risk').value,
-      note: $('j-note').value
+      contract: $('j-contract').value
     };
     if (!body.reason.trim()) { say('jmsg', '请写理由', false); return; }
     post('/api/journal', body).then(function (j) {
@@ -1239,7 +1246,7 @@ def render_journal(cfg):
       side: $('t-side').value,
       lots: Number($('t-lots').value),
       open_price: Number($('t-price').value),
-      open_date: $('t-date').value || new Date().toISOString().slice(0, 10),
+      open_date: $('t-date').value || todayLocal(),
       reason: $('t-reason').value
     };
     if (!(body.open_price > 0)) { say('tmsg', '请填开仓价', false); return; }
@@ -1268,7 +1275,7 @@ def render_journal(cfg):
     });
   });
 
-  var today = new Date().toISOString().slice(0, 10);
+  var today = todayLocal();
   $('j-date').value = today;
   $('t-date').value = today;
 })();

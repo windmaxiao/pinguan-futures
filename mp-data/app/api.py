@@ -331,7 +331,8 @@ class Handler(BaseHTTPRequestHandler):
                 journal.save_journal(conn, date, direction,
                                      (p.get("reason") or "")[:300],
                                      (p.get("risk") or "")[:300],
-                                     (p.get("note") or "").strip()[:12])
+                                     (p.get("note") or "").strip()[:60],
+                                     (p.get("contract") or "").strip()[:12])
                 self._send(200, {"ok": True})
 
             elif path == "/api/trade":
