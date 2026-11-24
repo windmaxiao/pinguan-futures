@@ -245,7 +245,7 @@ def render_brief(date_text, data, items_high, items_norm, summary, ai_ok):
 <h2>今日重要数据</h2>
 <div class="card">{cal_html}</div>
 
-<footer>覆盖过去 24 小时 · 数据来源：金十数据 / 新浪财经 / 生意社 · 本页仅供参考</footer>
+<footer>覆盖过去 24 小时 · 数据来源：新浪财经 / Mysteel / USDA WASDE / 生意社 / 金十数据 · 本页仅供参考</footer>
 </div></body></html>
 """.format(head=_page_head("豆粕简报 · %s" % date_text, [], "../"),
            nav=render._nav("brief.html", "../"),
