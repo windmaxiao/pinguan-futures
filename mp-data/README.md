@@ -484,9 +484,8 @@ Token 获取：https://mcp.jin10.com/app/ 登录后点「管理TOKEN」。
 | `news_max_age_days` | 深度资讯窗口（默认 30 天，因为这类文章少） |
 | `calendar_star` / `calendar_keywords` | 财经日历的最低星级与关键词过滤 |
 
-**实现说明**：`app/mcp.py` 是自己写的极简 MCP Streamable HTTP 客户端
-（urllib 实现，不依赖 requests/MCP SDK），从 `E:\DSH\futures-daily` 的
-`src/mcp_client.py` 移植而来，逻辑等价、依赖归零。
+**实现说明**：`app/mcp.py` 是自带的极简 MCP Streamable HTTP 客户端
+（urllib 实现，不依赖 requests / MCP SDK）。
 
 > 金十的行情接口不含豆类（97 个代码里没有任何农产品），所以它只用来取
 > 快讯/资讯/日历，补不了「美豆历史」这个缺口。
