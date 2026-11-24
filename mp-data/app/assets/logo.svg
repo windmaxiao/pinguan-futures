@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <!-- 背景渐变 -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1f3b30" />
+      <stop offset="60%" stop-color="#142c22" />
+      <stop offset="100%" stop-color="#0e1f18" />
+    </linearGradient>
+
+    <!-- 金色大豆渐变 -->
+    <linearGradient id="soybeanGrad" x1="15%" y1="10%" x2="85%" y2="90%">
+      <stop offset="0%" stop-color="#fed678" />
+      <stop offset="40%" stop-color="#eeb044" />
+      <stop offset="100%" stop-color="#c9821d" />
+    </linearGradient>
+
+    <!-- 嫩芽渐变 -->
+    <linearGradient id="sproutGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3b7a57" />
+      <stop offset="60%" stop-color="#5fa879" />
+      <stop offset="100%" stop-color="#8fd6a2" />
+    </linearGradient>
+
+    <!-- K线微渐变 -->
+    <linearGradient id="barGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#0f2b20" />
+      <stop offset="100%" stop-color="#1b4635" />
+    </linearGradient>
+
+    <!-- 高光与阴影 -->
+    <linearGradient id="glowLine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.6" />
+      <stop offset="60%" stop-color="#f5d58f" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#e0a944" stop-opacity="0" />
+    </linearGradient>
+
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000000" flood-opacity="0.32" />
+    </filter>
+  </defs>
+
+  <!-- 第 1 层：背景圆角矩形（删去杂乱的雷达圈与十字线，聚焦纯粹沉静的墨绿底板） -->
+  <rect x="10" y="10" width="236" height="236" rx="54" fill="url(#bgGrad)" filter="url(#dropShadow)" />
+  <rect x="10" y="10" width="236" height="236" rx="54" fill="none" stroke="#e0a944" stroke-width="1.8" stroke-opacity="0.22" />
+
+  <!-- 第 2 层：核心大豆主体 (黄金饱满，角度倾斜 15 度) -->
+  <g transform="translate(128, 132) rotate(-15) translate(-128, -128)">
+    <path d="M 86 52
+             C 144 34, 202 74, 202 132
+             C 202 188, 148 218, 92 200
+             C 44 184, 34 130, 52 90
+             C 62 70, 74 56, 86 52 Z"
+          fill="url(#soybeanGrad)" />
+
+    <!-- 豆体表面边缘高光流线 -->
+    <path d="M 88 58 C 140 42, 190 78, 192 130"
+          fill="none" stroke="url(#glowLine)" stroke-width="3" stroke-linecap="round" />
+
+    <!-- 第 3 层：豆脐造型微调（贴近大豆内缘自然微弧，温和自然） -->
+    <path d="M 74 104 C 66 126, 68 152, 84 172"
+          fill="none" stroke="#875312" stroke-width="6" stroke-linecap="round" stroke-opacity="0.6" />
+
+    <!-- 第 4 层：三联期货量化K线（彻底收敛在豆体金黄边界内，影线决不外探如天线） -->
+    <!-- 柱 1：近月/基差 -->
+    <line x1="114" y1="112" x2="114" y2="162" stroke="#123024" stroke-width="2.6" stroke-linecap="round" />
+    <rect x="108" y="122" width="12" height="30" rx="3" fill="url(#barGrad)" />
+
+    <!-- 柱 2：月差/中端 -->
+    <line x1="138" y1="94" x2="138" y2="166" stroke="#123024" stroke-width="2.6" stroke-linecap="round" />
+    <rect x="132" y="108" width="12" height="46" rx="3" fill="url(#barGrad)" />
+
+    <!-- 柱 3：主力/突破（最高点 78，大豆上边界在 46，留有充裕安全距离） -->
+    <line x1="162" y1="78" x2="162" y2="158" stroke="#123024" stroke-width="2.6" stroke-linecap="round" />
+    <rect x="156" y="92" width="12" height="54" rx="3" fill="url(#barGrad)" />
+    <!-- 内芯微光 -->
+    <rect x="159" y="95" width="6" height="48" rx="1.5" fill="#42785a" opacity="0.5" />
+  </g>
+
+  <!-- 顶部萌芽（生机与趋势生长） -->
+  <g transform="translate(182, 64) rotate(14)">
+    <path d="M 0 32 C 18 22, 28 3, 27 -12 C 12 -4, 2 12, 0 32 Z"
+          fill="url(#sproutGrad)" />
+    <path d="M 0 32 C -8 20, -2 5, 10 -6 C 8 8, 2 20, 0 32 Z"
+          fill="#346f4e" opacity="0.65" />
+  </g>
+
+  <!-- 右上方北极星芒（保留“观”的聚焦灵魂，纯净点缀） -->
+  <g transform="translate(198, 52)">
+    <circle cx="0" cy="0" r="3.5" fill="#ffffff" />
+    <line x1="-8" y1="0" x2="8" y2="0" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" opacity="0.85" />
+    <line x1="0" y1="-8" x2="0" y2="8" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" opacity="0.85" />
+  </g>
+</svg>

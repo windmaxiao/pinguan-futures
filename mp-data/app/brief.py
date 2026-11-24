@@ -178,13 +178,15 @@ def _news_list(items, limit=200):
 
 
 def _page_head(title, nav_items, prefix=""):
-    """prefix：简报页在 brief/ 子目录下，需要 ../ 才能引到根目录的 style.css。"""
+    """prefix：简报页在 brief/ 子目录下，需要 ../ 才能引到根目录的 style.css 与 favicon.svg。"""
     nav = "".join("<a href='%s'>%s</a>" % (u, t) for t, u in nav_items)
     return ("<!doctype html>\n<html lang=\"zh-CN\"><head><meta charset=\"utf-8\">\n"
             "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
-            "<title>%s</title><link rel=\"stylesheet\" href=\"%sstyle.css\"></head>\n"
+            "<title>%s</title>\n"
+            "<link rel=\"icon\" href=\"%sfavicon.svg\" type=\"image/svg+xml\">\n"
+            "<link rel=\"stylesheet\" href=\"%sstyle.css\"></head>\n"
             "<body><div class=\"wrap\">\n"
-            "<header><h1>%s</h1>" % (title, prefix, title))
+            "<header><h1>%s</h1>" % (title, prefix, prefix, title))
 
 
 def render_brief(date_text, data, items_high, items_norm, summary, ai_ok):

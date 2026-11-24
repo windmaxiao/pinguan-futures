@@ -1026,7 +1026,9 @@ def render_journal(cfg):
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>交易复盘 · __TITLE__</title><link rel="stylesheet" href="style.css"></head>
+<title>交易复盘 · __TITLE__</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css"></head>
 <body><div class="wrap">
 <header>
   <h1>交易复盘</h1>
@@ -1527,6 +1529,16 @@ def main():
             css_bytes = fh.read()
         with open(os.path.join(SITE, CSS_HREF), "wb") as fh:
             fh.write(css_bytes)
+
+    # 同步静态资产（favicon、logo 等）到 site/
+    assets_dir = os.path.join(APP, "assets")
+    if os.path.exists(assets_dir):
+        for fname in os.listdir(assets_dir):
+            src_f = os.path.join(assets_dir, fname)
+            if os.path.isfile(src_f):
+                dst_f = os.path.join(SITE, fname)
+                with open(src_f, "rb") as sf, open(dst_f, "wb") as df:
+                    df.write(sf.read())
 
     with open(os.path.join(SITE, "index.html"), "w", encoding="utf-8") as fh:
         fh.write(render_index(cfg, data))

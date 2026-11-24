@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#18362b" />
+      <stop offset="100%" stop-color="#0e231b" />
+    </linearGradient>
+    <linearGradient id="bean" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f5c767" />
+      <stop offset="100%" stop-color="#d49428" />
+    </linearGradient>
+    <linearGradient id="leaf" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6bb88b" />
+      <stop offset="100%" stop-color="#3d825f" />
+    </linearGradient>
+  </defs>
+
+  <!-- 1. 背景底板：圆角正方形 -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)" />
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="#d49428" stroke-width="1.2" stroke-opacity="0.3" />
+
+  <!-- 2. 大豆饱满主体 (整体轮廓更紧凑协调) -->
+  <path d="M 21 14 
+           C 36 9, 52 18, 52 33 
+           C 52 47, 37 54, 23 50 
+           C 11 46, 8 32, 13 22 
+           C 15 18, 18 15, 21 14 Z" 
+        fill="url(#bean)" />
+
+  <!-- 3. 豆脐造型优化：贴近左内缘的柔和月牙凹弧，不再突兀像括号 -->
+  <path d="M 18 25 C 16 31, 17 37, 21 42" 
+        fill="none" stroke="#9e6616" stroke-width="2.2" stroke-linecap="round" stroke-opacity="0.75" />
+
+  <!-- 4. 三联递进行情K线：完整收纳在豆身内，上下影线绝不穿出豆体边界 -->
+  <!-- 柱 1 (基差/近端) -->
+  <line x1="28" y1="28" x2="28" y2="40" stroke="#102b21" stroke-width="1.2" stroke-linecap="round" />
+  <rect x="26.4" y="30" width="3.2" height="8" rx="1" fill="#102b21" />
+
+  <!-- 柱 2 (月差/中端) -->
+  <line x1="35" y1="23" x2="35" y2="41" stroke="#102b21" stroke-width="1.2" stroke-linecap="round" />
+  <rect x="33.4" y="26" width="3.2" height="12" rx="1" fill="#102b21" />
+
+  <!-- 柱 3 (主力突破/远端) -->
+  <line x1="42" y1="19" x2="42" y2="39" stroke="#102b21" stroke-width="1.2" stroke-linecap="round" />
+  <rect x="40.4" y="22" width="3.2" height="13" rx="1" fill="#102b21" />
+
+  <!-- 5. 顶部嫩芽（生机与趋势） -->
+  <path d="M 45 15 C 50 11, 54 13, 53 18 C 50 20, 46 18, 45 15 Z" fill="url(#leaf)" />
+</svg>
