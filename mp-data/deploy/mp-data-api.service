@@ -11,7 +11,9 @@ WorkingDirectory=/srv/mp-data
 Environment=TZ=Asia/Shanghai
 Environment=PYTHONUNBUFFERED=1
 Environment=MP_API_PORT=8765
-Environment=MP_ALLOWED_ORIGIN=https://data.example.com
+# Origin 校验的域名取自 /etc/mp-data/site.json；
+# 如需临时覆盖可取消下一行注释并填入实际域名
+# Environment=MP_ALLOWED_ORIGIN=https://data.example.com
 ExecStart=/usr/bin/python3 /srv/mp-data/app/api.py
 Restart=always
 RestartSec=3

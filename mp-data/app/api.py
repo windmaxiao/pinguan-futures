@@ -22,12 +22,13 @@ import db      # noqa: E402
 import gate    # noqa: E402
 import journal # noqa: E402
 import render  # noqa: E402
+import siteurl  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = os.path.join(ROOT, "app")
 DB_PATH = os.path.join(ROOT, "db", "mp.sqlite3")
 PORT = int(os.environ.get("MP_API_PORT", "8765"))
-ALLOWED_ORIGIN = os.environ.get("MP_ALLOWED_ORIGIN", "https://data.example.com")
+ALLOWED_ORIGIN = os.environ.get("MP_ALLOWED_ORIGIN") or siteurl.base_url()
 
 
 def load_config():

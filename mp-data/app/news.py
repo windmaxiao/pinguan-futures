@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import mcp      # noqa: E402
 import notify   # noqa: E402
+import siteurl  # noqa: E402
 import sources  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -294,7 +295,7 @@ def _send_alerts(alerts):
     body = "金十快讯命中关键词：\n\n"
     for t, c in alerts[:5]:
         body += "【%s】%s\n\n" % (t, c[:200])
-    body += "\n看板：https://data.example.com/"
+    body += "\n看板：%s/" % siteurl.base_url()
     # 日常快讯只发邮件；Server酱 的 5 条/天额度留给系统故障
     notify.send("[豆粕数据] 重要快讯 %d 条" % len(alerts), body, channels=("mail",))
 

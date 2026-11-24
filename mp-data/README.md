@@ -139,6 +139,23 @@ grep -rl 'data\.example\.com' . | xargs sed -i 's/data\.example\.com/你的域�
 |---|---|---|
 | `mp-data-api.service` | `127.0.0.1:8765` | 网页录入写入接口，经 nginx 反代 |
 
+## 站点地址
+
+邮件里的早报链接、以及写入接口的 Origin 校验，都从 `/etc/mp-data/site.json` 读取：
+
+```json
+{"site_url": "https://data.example.com"}
+```
+
+这样仓库里可以只放占位域名，**发布代码时不用再逐文件替换**。
+`install.sh` 会用 `MP_DOMAIN` 环境变量生成，默认 `data.example.com`：
+
+```bash
+sudo MP_DOMAIN=你的域名 ./install.sh
+```
+
+没配置时回退到 `siteurl.FALLBACK`（占位域名）。
+
 ## 告警
 
 每次抓取结束后会自动做一次数据体检（`health.py`），有问题就发邮件。

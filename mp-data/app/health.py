@@ -13,11 +13,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import db       # noqa: E402
 import notify   # noqa: E402
+import siteurl  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(ROOT, "db", "mp.sqlite3")
 STATE_PATH = os.path.join(ROOT, "db", "notify_state.json")
-SITE = "https://data.example.com/"
+SITE = siteurl.base_url()
 DEDUPE_HOURS = 12
 
 # (series_id, 名称, 最多允许多少天没更新)

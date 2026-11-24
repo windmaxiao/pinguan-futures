@@ -17,6 +17,7 @@ import llm     # noqa: E402
 import news    # noqa: E402
 import notify  # noqa: E402
 import render  # noqa: E402
+import siteurl  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = os.path.join(ROOT, "app")
@@ -24,7 +25,6 @@ DB_PATH = os.path.join(ROOT, "db", "mp.sqlite3")
 SITE = os.path.join(ROOT, "site")
 BRIEF_DIR = os.path.join(SITE, "brief")
 MACRO_DIR = os.path.join(SITE, "macro")
-SITE_URL = "https://data.example.com/"
 KEEP_DAYS = 90
 WEEKDAYS = "一二三四五六日"
 SECTOR_ORDER = ["宏观", "黑色", "有色", "能化", "农产品", "贵金属", "股指", "汇率"]
@@ -432,10 +432,11 @@ def main():
           % (today, len(soy), len(soy_high), total_macro))
 
     # 7. 一封邮件，两个导语 + 两个链接
-    body = "【豆粕】\n%s\n%s\n\n详细：%sbrief/%s.html\n\n" % (
-        soy_summary or data["lead"], "重要快讯 %d 条" % len(soy_high), SITE_URL, today)
-    body += "【全市场】\n%s\n\n详细：%smacro/%s.html\n" % (
-        macro_summary or "过去 24 小时各板块要闻", SITE_URL, today)
+    base = siteurl.base_url()
+    body = "【豆粕】\n%s\n%s\n\n详细：%s/brief/%s.html\n\n" % (
+        soy_summary or data["lead"], "重要快讯 %d 条" % len(soy_high), base, today)
+    body += "【全市场】\n%s\n\n详细：%s/macro/%s.html\n" % (
+        macro_summary or "过去 24 小时各板块要闻", base, today)
     notify.send("[豆粕早报] %s" % today, body, channels=("mail",))
 
 

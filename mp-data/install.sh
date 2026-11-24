@@ -98,6 +98,17 @@ fi
 chown "$SERVICE_USER":"$SERVICE_USER" /etc/mp-data/llm.json
 chmod 600 /etc/mp-data/llm.json
 
+# 站点地址（邮件里的链接用它；填真实域名后不必再改代码）
+if [[ -f /etc/mp-data/site.json ]]; then
+    say "site.json 已存在，保留不覆盖"
+else
+    DOMAIN="${MP_DOMAIN:-data.example.com}"
+    echo "{\"site_url\": \"https://${DOMAIN}\"}" > /etc/mp-data/site.json
+    say "已写入站点地址 /etc/mp-data/site.json（${DOMAIN}，可用 MP_DOMAIN 指定）"
+fi
+chown "$SERVICE_USER":"$SERVICE_USER" /etc/mp-data/site.json
+chmod 600 /etc/mp-data/site.json
+
 # 5. systemd
 install -m 644 "$SRC_DIR"/deploy/mp-data.service        /etc/systemd/system/
 install -m 644 "$SRC_DIR"/deploy/mp-data.timer          /etc/systemd/system/
