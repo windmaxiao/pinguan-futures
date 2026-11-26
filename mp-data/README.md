@@ -112,6 +112,20 @@ sudo -u mpdata python3 app/auth.py secret     # 轮换密钥，踢掉所有会�
 sudo -u mpdata python3 app/auth.py admin 新管理码
 ```
 
+### 登录限流
+
+`/auth/login` 与 `/auth/admin/login` 按 IP 限流 **10 次/分钟**（允许 5 次突发），
+超限返回 429 + JSON 提示。防的是暴力试码。
+
+限流区定义在 `/etc/nginx/conf.d/mp-ratelimit.conf`（模板见 `deploy/nginx-ratelimit.conf`）：
+
+```nginx
+limit_req_zone $binary_remote_addr zone=mp_login:1m rate=10r/m;
+```
+
+它**只作用于这两个登录接口**，`auth_request` 的内部校验 `/auth/check` 不经过限流，
+所以正常浏览不会因为刷新几次就被拦。
+
 ### 关闭门禁
 
 门禁关闭后不再校验访问码，任何人可直接访问；随时可再打开：
