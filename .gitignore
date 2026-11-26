@@ -28,3 +28,6 @@ _probe/
 # 系统文件
 .DS_Store
 Thumbs.db
+
+# 其他 AI 工具的本地记忆文件
+.workbuddy/
